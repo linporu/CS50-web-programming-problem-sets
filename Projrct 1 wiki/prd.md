@@ -60,3 +60,60 @@
 - Framework: Django
 - 套件相依: `python-markdown2` (基本版)
 - 檔案儲存: 使用 Django 的檔案系統
+
+---
+
+# Specification
+
+Complete the implementation of your Wiki encyclopedia. You must fulfill the following requirements:
+
+## Entry Page
+- Visiting `/wiki/TITLE`, where TITLE is the title of an encyclopedia entry, should render a page that displays the contents of that encyclopedia entry
+- The view should get the content of the encyclopedia entry by calling the appropriate util function
+- If an entry is requested that does not exist, the user should be presented with an error page indicating that their requested page was not found
+- If the entry does exist, the user should be presented with a page that displays the content of the entry. The title of the page should include the name of the entry
+
+## Index Page 
+- Update index.html such that, instead of merely listing the names of all pages in the encyclopedia, user can click on any entry name to be taken directly to that entry page
+
+## Search
+- Allow the user to type a query into the search box in the sidebar to search for an encyclopedia entry
+- If the query matches the name of an encyclopedia entry, the user should be redirected to that entry's page
+- If the query does not match the name of an encyclopedia entry:
+  - The user should be taken to a search results page
+  - Display a list of all encyclopedia entries that have the query as a substring
+  - Example: if search query is "ytho", then "Python" should appear in results
+- Clicking on any entry name in search results should take user to that entry's page
+
+## New Page
+- Clicking "Create New Page" in sidebar should take user to new page creation form
+- Users should be able to:
+  - Enter a title for the page
+  - Enter Markdown content in a textarea
+  - Click button to save the new page
+- When saving:
+  - If entry exists with same title, show error message
+  - Otherwise, save entry to disk and redirect to new entry's page
+
+## Edit Page
+- On each entry page, provide link to edit page
+- Edit page should:
+  - Show textarea pre-populated with existing Markdown content
+  - Have button to save changes
+  - Redirect to entry page after saving
+
+## Random Page
+- Clicking "Random Page" in sidebar should take user to random encyclopedia entry
+
+## Markdown to HTML Conversion
+- Convert Markdown content to HTML before display
+- Basic: Use python-markdown2 package (install via pip3 install markdown2)
+- Advanced Challenge:
+  - Implement conversion without external libraries
+  - Support:
+    - Headings
+    - Boldface text
+    - Unordered lists
+    - Links
+    - Paragraphs
+  - Tip: Consider using Python regular expressions
