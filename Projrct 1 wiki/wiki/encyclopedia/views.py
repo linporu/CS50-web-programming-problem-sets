@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.http import HttpResponseRedirect
+from django.contrib import messages
 from django.urls import reverse
-
 from . import util
 
 
@@ -33,4 +33,18 @@ def search(request):
         "results": results,
         "query": query
     })
+
+def new(request):
+    if request.method == "POST":
+        title = request.POST["title"]
+        content = request.POST["content"]
+        
+        if util.get_entry(title):
+            messages.error(request, f"Entry '{title}' already exists")
+            return render(request, "encyclopedia/new.html")
+            
+        util.save_entry(title, content)
+        return redirect('entry', title=title)
+        
+    return render(request, "encyclopedia/new.html")
 
