@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 
@@ -25,7 +25,7 @@ def search(request):
     query = request.GET.get('q', '').lower()
     entries = util.list_entries()
     if query in [entry.lower() for entry in entries]:
-        return HttpResponseRedirect(reverse('entry', kwargs={'title': query}))
+        return redirect('entry', title=query)
     
     results = list(sorted([entry for entry in entries 
           if query in entry.lower()]))
