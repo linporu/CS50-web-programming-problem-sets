@@ -10,6 +10,7 @@ def index(request):
         "entries": util.list_entries()
     })
 
+
 def entry(request, title):
     content = util.get_entry(title)
     if content is None:
@@ -34,6 +35,7 @@ def search(request):
         "query": query
     })
 
+
 def new(request):
     if request.method == "POST":
         title = request.POST["title"]
@@ -44,7 +46,21 @@ def new(request):
             return render(request, "encyclopedia/new.html")
             
         util.save_entry(title, content)
-        return redirect('entry', title=title)
+        return redirect('enencyclopedia:entrytry', title=title)
         
     return render(request, "encyclopedia/new.html")
 
+
+def edit(request):
+    if request.method == "POST":
+        title = request.POST["title"]
+        content = request.POST["content"]
+        util.save_entry(title, content)
+        return redirect('encyclopedia:entry', title=title)
+
+    title = request.GET.get('title', '')
+    content = util.get_entry(title)
+    return render(request, "encyclopedia/edit.html", {
+        "title": title, 
+        "content": content
+    })
