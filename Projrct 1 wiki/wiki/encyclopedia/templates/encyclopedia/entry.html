@@ -6,7 +6,7 @@
 
 {% block body %}
     <h1>{{ title }}</h1>
-    {{ content }}
+    {{ content|safe }}
     <form action="{% url 'encyclopedia:edit' %}" method="GET">
         <input type="hidden" name="title" value="{{ title }}">
         <button type="submit">Edit entry</button>

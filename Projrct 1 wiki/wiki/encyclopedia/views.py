@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.urls import reverse
 from . import util
 from random import choice
+import markdown2
 
 
 def index(request):
@@ -18,9 +19,10 @@ def entry(request, title):
         return render(request, "encyclopedia/error.html", {
             "message": "Page not found"
         })
+    markdown_content = markdown2.markdown(content)
     return render(request, "encyclopedia/entry.html", {
         "title": title,
-        "content": content
+        "content": markdown_content
     })
 
 def search(request):
