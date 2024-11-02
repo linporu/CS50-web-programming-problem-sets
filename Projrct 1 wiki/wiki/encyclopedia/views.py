@@ -1,7 +1,5 @@
 from django.shortcuts import render, redirect
-from django.http import HttpResponseRedirect
 from django.contrib import messages
-from django.urls import reverse
 from . import util
 from random import choice
 import markdown2
