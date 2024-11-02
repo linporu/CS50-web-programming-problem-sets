@@ -3,6 +3,7 @@ from django.http import HttpResponseRedirect
 from django.contrib import messages
 from django.urls import reverse
 from . import util
+from random import choice
 
 
 def index(request):
@@ -46,7 +47,7 @@ def new(request):
             return render(request, "encyclopedia/new.html")
             
         util.save_entry(title, content)
-        return redirect('enencyclopedia:entrytry', title=title)
+        return redirect('encyclopedia:entry', title=title)
         
     return render(request, "encyclopedia/new.html")
 
@@ -64,3 +65,10 @@ def edit(request):
         "title": title, 
         "content": content
     })
+
+
+def random(request):
+    entries = util.list_entries()
+    random_entry = choice(entries)
+    return redirect('encyclopedia:entry', title=random_entry)
+
