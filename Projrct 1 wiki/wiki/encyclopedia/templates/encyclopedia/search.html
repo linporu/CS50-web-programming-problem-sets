@@ -6,13 +6,11 @@
 
 {% block body %}
     <h1>Search results of "{{ query }}"</h1>
-    {% if results %}
-        <ul>
-            {% for result in results %}
+    <ul>
+        {% for result in results %}
             <li><a href="{% url 'encyclopedia:entry' title=result %}">{{ result }}</a></li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p>No page found</p>
-    {% endif %}
+        {% empty %}
+            <p>No page found</p>
+        {% endfor %}
+    </ul>
 {% endblock %}
