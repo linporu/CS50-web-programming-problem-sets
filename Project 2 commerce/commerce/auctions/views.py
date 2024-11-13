@@ -1,10 +1,11 @@
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 
-from .models import User
+from .models import User, Listing
 
 
 def index(request):
@@ -61,3 +62,54 @@ def register(request):
         return HttpResponseRedirect(reverse("index"))
     else:
         return render(request, "auctions/register.html")
+
+@login_required
+def create_listing(request):
+    if request.method == "POST":
+        title = request.POST["title"]
+        description = request.POST["description"]
+        starting_bid = float(request.POST["starting_bid"])
+        url = request.POST.get("url", "")  # Optional field
+        created_by = request.user
+
+        # Input validation
+        errors = []
+        if not title:
+            errors.append("Title is required")
+        if not description:
+            errors.append("Description is required")
+        if not starting_bid or float(starting_bid) <= 0:
+            errors.append("Starting bid must be greater than 0")
+
+        if errors:
+            return render(request, "auctions/create-listing.html", {
+                "message": "Please correct the following errors:",
+                "errors": errors,
+                "values": {  # Keep input data
+                    "title": title,
+                    "description": description,
+                    "starting_bid": starting_bid,
+                    "url": url
+                }
+            })
+        
+        try:
+            listing = Listing(
+                title=title,
+                description=description,
+                starting_bid=starting_bid,
+                url=url,
+                created_by=created_by
+            )
+            listing.save()
+            return render(request, "auctions/create-listing.html", {
+                "message": f"Listing created succussfully",
+            })
+            
+        except Exception as e:
+            return render(request, "auctions/create-listing.html", {
+                "message": f"Error: {e}",
+                "errors": e
+            })
+    
+    return render(request, "auctions/create-listing.html")

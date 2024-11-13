@@ -1,0 +1,32 @@
+{% extends "auctions/layout.html" %}
+
+{% block body %}
+    <h2>Create Listings</h2>
+
+    {% if message %}
+        <div class="alert {% if errors %}alert-danger{% else %}alert-success{% endif %}" role="alert">
+            {{ message }}
+            {% if errors %}
+                <ul>
+                    {% for error in errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <form method="POST">
+        {% csrf_token %}
+        <input type="text" name="title" placeholder="Title" required 
+           value="{{ values.title|default:'' }}">
+        <input type="text" name="description" placeholder="Description" required
+            value="{{ values.description|default:'' }}">
+        <input type="number" name="starting_bid" placeholder="Starting bid" required
+            value="{{ values.starting_bid|default:'' }}" step="0.01" min="0.01">
+        <input type="url" name="url" placeholder="Image URL (optional)"
+            value="{{ values.url|default:'' }}">
+        <input type="submit" value="Create Listing">
+    </form>
+
+{% endblock %}
