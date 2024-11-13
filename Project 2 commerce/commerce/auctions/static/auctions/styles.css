@@ -7,3 +7,16 @@ form {
     flex-direction: column;
     gap: 1rem;
 }
+
+.listing-block {
+    margin-bottom: 2rem;
+    padding: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.listing-image {
+    max-width: 300px;
+    height: auto;
+    border-radius: 4px;
+}

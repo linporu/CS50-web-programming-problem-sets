@@ -9,7 +9,10 @@ from .models import User, Listing
 
 
 def index(request):
-    return render(request, "auctions/index.html")
+    listings = Listing.objects.filter(state=Listing.ListingState.ACTIVE)[:10] # Only top 10 active listings
+    return render(request, "auctions/index.html", {
+        "listings": listings
+    })
 
 
 def login_view(request):
@@ -63,6 +66,7 @@ def register(request):
     else:
         return render(request, "auctions/register.html")
 
+
 @login_required
 def create_listing(request):
     if request.method == "POST":
@@ -113,3 +117,10 @@ def create_listing(request):
             })
     
     return render(request, "auctions/create-listing.html")
+
+
+def active_listings(request):
+    listings = Listing.objects.filter(state=Listing.ListingState.ACTIVE)
+    return render(request, "auctions/active-listings.html", {
+        "listings": listings
+    })

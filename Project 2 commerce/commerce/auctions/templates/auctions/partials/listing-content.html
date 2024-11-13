@@ -1,0 +1,14 @@
+{% if listings %}
+    {% for listing in listings %}
+        <div class="listing-block">
+            <h3>{{ listing.title }}</h3>
+            <p>{{ listing.description }}</p>
+            <p>Current price: {{ listing.starting_bid }}</p>
+            {% if listing.url %}
+                <img src="{{ listing.url }}" alt="{{ listing.title }}" class="listing-image">
+            {% endif %}
+        </div>
+    {% endfor %}
+{% else %}
+    <p>No active listing available</p>
+{% endif %}

@@ -20,6 +20,16 @@ class Listing(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class ListingState(models.TextChoices):
+        ACTIVE = 'ACTIVE'
+        CLOSED = 'CLOSED'
+
+    state = models.CharField(
+        max_length=10,
+        choices=ListingState.choices,
+        default=ListingState.ACTIVE
+    )
+
 
     def __str__(self):
         return f"title: {self.title}, description = {self.description}. starting bid = {self.starting_bid}"
