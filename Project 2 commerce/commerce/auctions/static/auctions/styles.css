@@ -20,3 +20,26 @@ form {
     height: auto;
     border-radius: 4px;
 }
+
+.custom-select {
+    width: 100%;
+    min-height: 100px;
+    padding: 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: white;
+}
+
+.custom-select option {
+    padding: 8px;
+    cursor: pointer;
+    margin: 2px 0;
+}
+
+.custom-select option:hover {
+    background-color: #f8f9fa;
+}
+
+.custom-select option:checked {
+    background-color: #e9ecef;
+}

@@ -10,8 +10,23 @@
             value="{{ listing.description|default:'' }}">
         <input type="number" name="starting_bid" placeholder="Starting bid (from 0.01)" required
             value="{{ listing.starting_bid|default:'' }}" step="0.01" min="0.01">
-        <input type="text" name="category" placeholder="Category (optional)" 
-        value="{{ listing.category|default:'' }}">
+        <div class="form-group">
+            <label>Categories</label>
+            <div class="checkbox-group">
+                {% for category in all_categories %}
+                    <div class="form-check">
+                        <input type="checkbox" 
+                               name="categories" 
+                               value="{{ category.id }}" 
+                               class="form-check-input" 
+                               id="category_{{ category.id }}">
+                        <label class="form-check-label" for="category_{{ category.id }}">
+                            {{ category.name }}
+                        </label>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
         <input type="url" name="url" placeholder="Image URL (optional)"
         value="{{ listing.url|default:'' }}">
         <input type="submit" value="Create Listing">

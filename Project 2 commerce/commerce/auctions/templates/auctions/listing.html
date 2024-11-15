@@ -7,10 +7,10 @@
     <p>{{ listing.description }}</p>
     <p>Starting bid: {{ listing.starting_bid }}</p>
     <p>Current price: {{ listing.current_price }}</p>
-    {% if listing.categories.all %}
+    {% if categories %}
         <p>Categories: 
-            {% for category in listing.categories.all %}
-                {{ category.category }}{% if not forloop.last %}, {% endif %}
+            {% for category in categories %}
+                {{ category.name }}{% if not forloop.last %}, {% endif %}
             {% endfor %}
         </p>
     {% endif %}

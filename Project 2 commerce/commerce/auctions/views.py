@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
 from django.http import HttpResponse, HttpResponseRedirect
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from .models import User, Listing, Bid, Comment, Category, Watchlist
 from .utils import *
@@ -73,11 +73,14 @@ def register(request):
 
 @login_required
 def create_listing(request):
+    all_categories = Category.objects.all()
+
     if request.method == "POST":
         title = request.POST["title"]
         description = request.POST["description"]
         starting_bid = float(request.POST["starting_bid"])
-        category = request.POST.get("category", "")  # Optional field
+        category_ids = request.POST.getlist("categories")
+        selected_categories = Category.objects.filter(id__in=category_ids) if category_ids else None
         url = request.POST.get("url", "")  # Optional field
         created_by = request.user
 
@@ -98,9 +101,10 @@ def create_listing(request):
                     "title": title,
                     "description": description,
                     "starting_bid": starting_bid,
-                    "category": category,
+                    "categories": selected_categories,
                     "url": url
-                }
+                },
+                "all_categories": all_categories
             })
         
         try:
@@ -112,18 +116,28 @@ def create_listing(request):
                 created_by=created_by
             )
             listing.save()
-            message = Message.success("Listing created succussfully")
-            return render(request, "auctions/create-listing.html", {
-                "message": message
-            })
+            
+            if category_ids:
+                listing.categories.set(selected_categories)
+            else:
+                message = Message.warning("Categories do not exist")
+                return render(request, "auctions/create-listing.html", {
+                    "message": message,
+                    "all_categories": all_categories
+                })
+
+            return redirect('listing_page', listing_id=listing.id)
             
         except Exception as e:
             message = Message.error(e)
             return render(request, "auctions/create-listing.html", {
-                "message": message
+                "message": message,
+                "all_categories": all_categories
             })
     
-    return render(request, "auctions/create-listing.html")
+    return render(request, "auctions/create-listing.html", {
+        "all_categories": all_categories
+    })
 
 
 def active_listings(request):
@@ -135,7 +149,9 @@ def active_listings(request):
 
 def listing_page(request, listing_id):
     listing = get_object_or_404(Listing, pk=listing_id)
+    categories = listing.categories.all()
 
+    # Bid
     if request.method == "POST":
         if request.user.is_authenticated:
             price = Decimal(request.POST["bid_price"])
@@ -179,13 +195,15 @@ def listing_page(request, listing_id):
                     })
         return render(request, "auctions/login.html")
     return render(request, "auctions/listing.html", {
-        "listing": listing
+        "listing": listing,
+        "categories": categories
     })
 
 
 @login_required
 def edit_listing(request, listing_id):
     listing = get_object_or_404(Listing, pk=listing_id)
+    categories = Category.objects.all()
 
     # Check whether the user is the linsting creater
     if request.user != listing.created_by:
@@ -195,8 +213,12 @@ def edit_listing(request, listing_id):
     if request.method == "POST":
         listing.title = request.POST["title"]
         listing.description = request.POST["description"]
+        category_ids = request.POST.getlist("categories")
+        if category_ids:
+            categories = Category.objects.filter(id__in=category_ids)
+            listing.categories.set(categories)
         listing.url = request.POST.get("url", "")
-        
+
         # Error handling
         errors = []
         if not listing.title:
@@ -205,9 +227,10 @@ def edit_listing(request, listing_id):
             errors.append("Description is required")
             
         if errors:
+            message = Message.error("Error", errors)
             return render(request, "auctions/edit.html", {
                 "listing": listing,
-                "errors": errors
+                "message": message
             })
             
         try:
@@ -222,6 +245,7 @@ def edit_listing(request, listing_id):
         
     # GET request
     return render(request, "auctions/edit-listing.html", {
-        "listing": listing
+        "listing": listing,
+        "categories": categories
     })
     

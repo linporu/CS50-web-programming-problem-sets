@@ -79,10 +79,18 @@ class Comment(models.Model):
 
 
 class Category(models.Model):
-    category = models.CharField(max_length=64)
+    name = models.CharField(
+        max_length=64,
+        unique=True,
+        db_index=True
+    )
+    
+    class Meta:
+        verbose_name_plural = "Categories"
+        ordering = ['name']
     
     def __str__(self):
-        return self.category
+        return self.name
     
 
 class Watchlist(models.Model):
