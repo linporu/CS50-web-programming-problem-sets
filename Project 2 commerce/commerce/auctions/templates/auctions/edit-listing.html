@@ -1,7 +1,8 @@
 {% extends "auctions/layout.html" %}
 
 {% block body %}
-    <h2>Create Listing</h2>
+
+<h2>Edit Listing</h2>
 
     {% if message %}
         <div class="alert {% if errors %}alert-danger{% else %}alert-success{% endif %}" role="alert">
@@ -26,7 +27,7 @@
             value="{{ listing.starting_bid|default:'' }}" step="0.01" min="0.01">
         <input type="url" name="url" placeholder="Image URL (optional)"
             value="{{ listing.url|default:'' }}">
-        <input type="submit" value="Create Listing">
+        <input type="submit" value="Edit Listing">
     </form>
 
 {% endblock %}

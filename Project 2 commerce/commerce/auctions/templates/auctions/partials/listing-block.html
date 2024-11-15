@@ -1,9 +1,9 @@
 {% if listings %}
     {% for listing in listings %}
         <div class="listing-block">
-            <h3>{{ listing.title }}</h3>
+            <h3><a href="{% url 'listing_page' listing.id %}" >{{ listing.title }}</a></h3>
             <p>{{ listing.description }}</p>
-            <p>Current price: {{ listing.starting_bid }}</p>
+            <p>Current price: {{ listing.current_price }}</p>
             {% if listing.url %}
                 <img src="{{ listing.url }}" alt="{{ listing.title }}" class="listing-image">
             {% endif %}

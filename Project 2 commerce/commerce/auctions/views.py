@@ -89,7 +89,7 @@ def create_listing(request):
             return render(request, "auctions/create-listing.html", {
                 "message": "Please correct the following errors:",
                 "errors": errors,
-                "values": {  # Keep input data
+                "listing": {  # Keep input data
                     "title": title,
                     "description": description,
                     "starting_bid": starting_bid,
@@ -131,3 +131,46 @@ def listing_page(request, listing_id):
     return render(request, "auctions/listing.html", {
         "listing": listing
     })
+
+
+@login_required
+def edit_listing(request, listing_id):
+    listing = get_object_or_404(Listing, pk=listing_id)
+
+    # Check whether the user is the linsting creater
+    if request.user != listing.created_by:
+        return HttpResponseRedirect(reverse("listing_page", args=[listing_id]))
+
+    # POST request
+    if request.method == "POST":
+        listing.title = request.POST["title"]
+        listing.description = request.POST["description"]
+        listing.url = request.POST.get("url", "")
+        
+        # Error handling
+        errors = []
+        if not listing.title:
+            errors.append("Title is required")
+        if not listing.description:
+            errors.append("Description is required")
+            
+        if errors:
+            return render(request, "auctions/edit.html", {
+                "listing": listing,
+                "errors": errors
+            })
+            
+        try:
+            listing.save()
+            return HttpResponseRedirect(reverse("listing_page", args=[listing_id]))
+        except Exception as e:
+            return render(request, "auctions/edit.html", {
+                "listing": listing,
+                "message": f"Error: {e}"
+            })
+        
+    # GET request
+    return render(request, "auctions/edit-listing.html", {
+        "listing": listing
+    })
+    

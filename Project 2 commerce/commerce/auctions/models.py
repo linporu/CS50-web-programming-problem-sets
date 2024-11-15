@@ -30,6 +30,7 @@ class Listing(models.Model):
         default=ListingState.ACTIVE
     )
 
+    @property
     def current_price(self):
         """Return the current highest bid price for this listing.
         If no bids exist, return the starting bid price."""
