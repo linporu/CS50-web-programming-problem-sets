@@ -11,15 +11,15 @@
   - [x] 關聯欄位: listing, bidder
   - [x] 價格欄位
   - [x] 時間戳記
-- [ ] 建立 Comment model
-  - [ ] 關聯欄位: listing, commenter
-  - [ ] 內容欄位
-  - [ ] 時間戳記
-- [ ] 建立 Category model
-  - [ ] 名稱欄位
-  - [ ] 關聯到 Listing (ManyToMany)
-- [ ] 建立 Watchlist model
-  - [ ] 關聯欄位: user, listing
+- [x] 建立 Comment model
+  - [x] 關聯欄位: listing, commenter
+  - [x] 內容欄位
+  - [x] 時間戳記
+- [x] 建立 Category model
+  - [x] 名稱欄位
+  - [x] 關聯到 Listing (ManyToMany)
+- [x] 建立 Watchlist model
+  - [x] 關聯欄位: user, listing
 
 ## 2. 基本頁面與功能
 - [x] 首頁 (活躍拍賣清單)
