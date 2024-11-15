@@ -77,6 +77,7 @@ def create_listing(request):
         title = request.POST["title"]
         description = request.POST["description"]
         starting_bid = float(request.POST["starting_bid"])
+        category = request.POST.get("category", "")  # Optional field
         url = request.POST.get("url", "")  # Optional field
         created_by = request.user
 
@@ -97,6 +98,7 @@ def create_listing(request):
                     "title": title,
                     "description": description,
                     "starting_bid": starting_bid,
+                    "category": category,
                     "url": url
                 }
             })

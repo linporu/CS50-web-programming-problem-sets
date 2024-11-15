@@ -7,6 +7,13 @@
     <p>{{ listing.description }}</p>
     <p>Starting bid: {{ listing.starting_bid }}</p>
     <p>Current price: {{ listing.current_price }}</p>
+    {% if listing.categories.all %}
+        <p>Categories: 
+            {% for category in listing.categories.all %}
+                {{ category.category }}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+        </p>
+    {% endif %}
     {% if listing.url %}
         <img src="{{ listing.url }}" alt="{{ listing.title }}" class="listing-image">
     {% endif %}
