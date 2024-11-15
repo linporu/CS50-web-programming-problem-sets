@@ -59,3 +59,18 @@ class Bid(models.Model):
         related_name="bids"
     )
     bid_at = models.DateTimeField(auto_now_add=True)
+
+
+class Comment(models.Model):
+    listing = models.ForeignKey(
+        Listing,
+        on_delete=models.CASCADE,
+        related_name="comments",
+    )
+    comment = models.TextField()
+    commenter = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="comments"
+    )
+    comment_at = models.DateTimeField(auto_now_add=True)
