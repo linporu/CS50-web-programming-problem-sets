@@ -191,7 +191,7 @@ def listing_page(request, listing_id):
                     message = Message.error(e)
                     return render(request, "auctions/listing.html", {
                         "message": message,
-
+                        "categories": categories
                     })
         return render(request, "auctions/login.html")
     return render(request, "auctions/listing.html", {
