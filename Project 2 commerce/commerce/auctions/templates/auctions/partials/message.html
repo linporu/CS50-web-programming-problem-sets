@@ -1,0 +1,12 @@
+{% if message %}
+<div class="alert {{ message.bootstrap_class }}" role="alert">
+    {{ message.text }}
+    {% if message.details %}
+        <ul>
+            {% for detail in message.details %}
+                <li>{{ detail }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</div>
+{% endif %}

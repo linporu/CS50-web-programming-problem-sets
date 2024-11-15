@@ -2,20 +2,6 @@
 
 {% block body %}
     <h2>Create Listing</h2>
-
-    {% if message %}
-        <div class="alert {% if errors %}alert-danger{% else %}alert-success{% endif %}" role="alert">
-            {{ message }}
-            {% if errors %}
-                <ul>
-                    {% for error in errors %}
-                        <li>{{ error }}</li>
-                    {% endfor %}
-                </ul>
-            {% endif %}
-        </div>
-    {% endif %}
-
     <form method="POST">
         {% csrf_token %}
         <input type="text" name="title" placeholder="Title" required 

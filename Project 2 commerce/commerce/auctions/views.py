@@ -1,11 +1,12 @@
+from decimal import Decimal
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
-
-from .models import User, Listing
+from .models import User, Listing, Bid
+from .utils import *
 
 
 def index(request):
@@ -28,8 +29,9 @@ def login_view(request):
             login(request, user)
             return HttpResponseRedirect(reverse("index"))
         else:
+            message = Message.error("Invalid username and/or password.")
             return render(request, "auctions/login.html", {
-                "message": "Invalid username and/or password."
+                "message": message
             })
     else:
         return render(request, "auctions/login.html")
@@ -49,8 +51,9 @@ def register(request):
         password = request.POST["password"]
         confirmation = request.POST["confirmation"]
         if password != confirmation:
+            message = Message.error("Passwords must match.")
             return render(request, "auctions/register.html", {
-                "message": "Passwords must match."
+                "message": message
             })
 
         # Attempt to create new user
@@ -58,8 +61,9 @@ def register(request):
             user = User.objects.create_user(username, email, password)
             user.save()
         except IntegrityError:
+            message = Message.error("Username already taken.")
             return render(request, "auctions/register.html", {
-                "message": "Username already taken."
+                "message": message
             })
         login(request, user)
         return HttpResponseRedirect(reverse("index"))
@@ -86,9 +90,9 @@ def create_listing(request):
             errors.append("Starting bid must be greater than 0")
 
         if errors:
+            message = Message.error("Please correct the following errors:", errors)
             return render(request, "auctions/create-listing.html", {
-                "message": "Please correct the following errors:",
-                "errors": errors,
+                "message": message,
                 "listing": {  # Keep input data
                     "title": title,
                     "description": description,
@@ -106,14 +110,15 @@ def create_listing(request):
                 created_by=created_by
             )
             listing.save()
+            message = Message.success("Listing created succussfully")
             return render(request, "auctions/create-listing.html", {
-                "message": f"Listing created succussfully",
+                "message": message
             })
             
         except Exception as e:
+            message = Message.error(e)
             return render(request, "auctions/create-listing.html", {
-                "message": f"Error: {e}",
-                "errors": e
+                "message": message
             })
     
     return render(request, "auctions/create-listing.html")
@@ -128,6 +133,49 @@ def active_listings(request):
 
 def listing_page(request, listing_id):
     listing = get_object_or_404(Listing, pk=listing_id)
+
+    if request.method == "POST":
+        if request.user.is_authenticated:
+            price = Decimal(request.POST["bid_price"])
+            current_price = Decimal(listing.current_price)
+            bidder = request.user
+            if price < listing.starting_bid:
+                message = Message.error(f"Bid price should be greater than starting bid ({listing.starting_bid})")
+                return render(request, "auctions/listing.html", {
+                    "listing": listing,
+                    "message": message,
+                    "bid_price": price
+                })
+            elif price <= current_price:
+                message = Message.error(f"Bid should be greater than current price ({listing.current_price})")
+                return render(request, "auctions/listing.html", {
+                    "listing": listing,
+                    "message": message,
+                    "bid_price": price
+                })
+            else:
+                try:
+                    bid = Bid(
+                        listing= listing,
+                        price=price,
+                        bidder=bidder                     
+                    )
+                    bid.save()
+                    listing.update_price(price)
+                    message = Message.success("Bid placed successfully")
+                    return render(request, "auctions/listing.html", {
+                        "listing": listing,
+                        "message": message,
+                        "bid_price": price
+                    })
+
+                except Exception as e:
+                    message = Message.error(e)
+                    return render(request, "auctions/listing.html", {
+                        "message": message,
+
+                    })
+        return render(request, "auctions/login.html")
     return render(request, "auctions/listing.html", {
         "listing": listing
     })
@@ -164,9 +212,10 @@ def edit_listing(request, listing_id):
             listing.save()
             return HttpResponseRedirect(reverse("listing_page", args=[listing_id]))
         except Exception as e:
+            message = Message.error(e)
             return render(request, "auctions/edit.html", {
                 "listing": listing,
-                "message": f"Error: {e}"
+                "message": message
             })
         
     # GET request
