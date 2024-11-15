@@ -5,7 +5,7 @@ from django.db import IntegrityError
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
-from .models import User, Listing, Bid, Comment
+from .models import User, Listing, Bid, Comment, Category
 from .utils import *
 
 

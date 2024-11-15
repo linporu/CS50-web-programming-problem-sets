@@ -32,6 +32,8 @@ class Listing(models.Model):
 
     current_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     
+    categories = models.ManyToManyField('Category', related_name='listings', blank=True)
+    
     def save(self, *args, **kwargs):
         # If this is a new object (no pk yet)
         if not self.pk:
@@ -74,3 +76,11 @@ class Comment(models.Model):
         related_name="comments"
     )
     comment_at = models.DateTimeField(auto_now_add=True)
+
+
+class Category(models.Model):
+    category = models.CharField(max_length=64)
+    
+    def __str__(self):
+        return self.category
+    
