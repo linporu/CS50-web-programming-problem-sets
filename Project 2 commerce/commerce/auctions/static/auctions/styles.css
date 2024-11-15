@@ -9,16 +9,46 @@ form {
 }
 
 .listing-block {
-    margin-bottom: 2rem;
-    padding: 1rem;
+    padding: 15px;
+    margin: 10px 0;
     border: 1px solid #ddd;
     border-radius: 8px;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.listing-block-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.3s ease;
+}
+
+.listing-block-link:hover {
+    transform: translateY(-3px);
+    text-decoration: none;
+}
+
+.listing-block-link:hover .listing-block {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    border-color: #007bff;
 }
 
 .listing-image {
-    max-width: 300px;
+    max-width: 100%;
     height: auto;
     border-radius: 4px;
+    margin-top: 10px;
+}
+
+.listing-block h3 {
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.listing-block p {
+    color: #666;
+    margin-bottom: 8px;
 }
 
 .custom-select {

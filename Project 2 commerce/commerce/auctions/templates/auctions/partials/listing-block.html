@@ -1,13 +1,15 @@
 {% if listings %}
     {% for listing in listings %}
-        <div class="listing-block">
-            <h3><a href="{% url 'listing_page' listing.id %}" >{{ listing.title }}</a></h3>
-            <p>{{ listing.description }}</p>
-            <p>Current price: {{ listing.current_price }}</p>
-            {% if listing.url %}
-                <img src="{{ listing.url }}" alt="{{ listing.title }}" class="listing-image">
-            {% endif %}
-        </div>
+        <a href="{% url 'listing_page' listing.id %}" class="listing-block-link">
+            <div class="listing-block">
+                <h3>{{ listing.title }}</h3>
+                <p>{{ listing.description }}</p>
+                <p>Current price: {{ listing.current_price }}</p>
+                {% if listing.url %}
+                    <img src="{{ listing.url }}" alt="{{ listing.title }}" class="listing-image">
+                {% endif %}
+            </div>
+        </a>
     {% endfor %}
 {% else %}
     <p>No active listing available</p>
