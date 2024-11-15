@@ -25,6 +25,8 @@
             value="{{ listing.description|default:'' }}">
         <input type="number" name="starting_bid" placeholder="Starting bid" required
             value="{{ listing.starting_bid|default:'' }}" step="0.01" min="0.01">
+        <input type="text" name="category" placeholder="Category (optional)" 
+            value="{{ listing.category|default:'' }}">
         <input type="url" name="url" placeholder="Image URL (optional)"
             value="{{ listing.url|default:'' }}">
         <input type="submit" value="Edit Listing">

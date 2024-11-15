@@ -30,7 +30,7 @@
 
     <!--Listing creater only-->
     {% if user == listing.created_by %}
-        <button href = "{% url 'edit_listing' listing.id %}" class="btn btn-primary">Edit Listing</button>
+        <a href="{% url 'edit_listing' listing.id %}" class="btn btn-primary">Edit Listing</a>
     {% endif %}
 
 {% endblock %}
