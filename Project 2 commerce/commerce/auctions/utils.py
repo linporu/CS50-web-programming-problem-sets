@@ -1,5 +1,9 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
+from decimal import Decimal
+from django.http import HttpRequest
+from .models import Bid, Watchlist, Comment, Listing
+from .forms import CommentForm
 
 
 @dataclass
@@ -23,5 +27,113 @@ class Message:
     @property
     def bootstrap_class(self) -> str:
         return f"alert-{self.type}"
+
+
+def handle_bid(request: HttpRequest, listing: Listing, context: Dict[str, Any]) -> None:
+    """Handle bid action for a listing
+    
+    Args:
+        request: The HTTP request object
+        listing: The Listing object
+        context: The template context dictionary
+    """
+    price = Decimal(request.POST["bid_price"])
+    current_price = Decimal(listing.current_price)
+    
+    if price < listing.starting_bid:
+        context["message"] = Message.error(
+            f"Bid price should be greater than starting bid ({listing.starting_bid})"
+        )
+    elif price <= current_price:
+        context["message"] = Message.error(
+            f"Bid should be greater than current price ({listing.current_price})"
+        )
+    else:
+        try:
+            bid = Bid.objects.create(
+                listing=listing,
+                price=price,
+                bidder=request.user
+            )
+            listing.update_price(price)
+            context["message"] = Message.success("Bid placed successfully")
+        except Exception as e:
+            context["message"] = Message.error(str(e))
+    
+    context["bid_price"] = price
+
+
+def handle_watchlist(request: HttpRequest, listing: Listing, context: Dict[str, Any]) -> None:
+    """Handle watchlist action for a listing
+    
+    Args:
+        request: The HTTP request object
+        listing: The Listing object
+        context: The template context dictionary
+    """
+    try:
+        watchlist_item, created = Watchlist.objects.get_or_create(
+            user=request.user,
+            listing=listing
+        )
+        if created:
+            context["message"] = Message.success("Added to watchlist")
+        else:
+            watchlist_item.delete()
+            context["message"] = Message.success("Removed from watchlist")
+        
+        context["is_in_watchlist"] = Watchlist.objects.filter(
+            user=request.user,
+            listing=listing
+        ).exists()
+    except Exception as e:
+        context["message"] = Message.error(str(e))
+
+
+def handle_close_auction(listing: Listing, context: Dict[str, Any]) -> None:
+    """Handle auction closing action
+    
+    Args:
+        listing: The Listing object
+        context: The template context dictionary
+    """
+    try:
+        highest_bid = Bid.objects.filter(listing=listing).order_by('-price').first() 
+        
+        if highest_bid:
+            listing.winning_bidder = highest_bid.bidder
+            listing.save()
+            context["winning_bidder"] = listing.winning_bidder
+            context["message"] = Message.success("Auction closed successfully")
+        else:
+            context["message"] = Message.error("No winning bidder")
+        
+        listing.state = listing.ListingState.CLOSED
+    except Exception as e:
+        context["message"] = Message.error(str(e))
+
+
+def handle_comment(request: HttpRequest, listing: Listing, context: Dict[str, Any]) -> None:
+    """Handle comment action for a listing
+    
+    Args:
+        request: The HTTP request object
+        listing: The Listing object
+        context: The template context dictionary
+    """
+    comment_form = CommentForm(request.POST)
+    if comment_form.is_valid():
+        try:
+            Comment.objects.create(
+                listing=listing,
+                content=comment_form.cleaned_data['content'],
+                commenter=request.user
+            )
+            context["message"] = Message.success("Comment added successfully")
+            context["comment_form"] = CommentForm()
+        except Exception as e:
+            context["message"] = Message.error("Failed to add comment. Please try again.")
+    else:
+        context["message"] = Message.error("Please check your input.")
 
 

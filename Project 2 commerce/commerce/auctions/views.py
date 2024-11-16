@@ -8,7 +8,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from .forms import CommentForm
 from .models import User, Listing, Bid, Comment, Category, Watchlist
-from .utils import *
+from .utils import Message, handle_bid, handle_watchlist, handle_close_auction, handle_comment
 
 
 def index(request):
@@ -151,140 +151,41 @@ def active_listings(request):
 
 def listing_page(request, listing_id):
     listing = get_object_or_404(Listing, pk=listing_id)
-    categories = listing.categories.all()
     
-    is_in_watchlist = Watchlist.objects.filter(
-        user=request.user,
-        listing=listing
-    ).exists() if request.user.is_authenticated else False
+    # Initialize basic context
+    context = {
+        "listing": listing,
+        "categories": listing.categories.all(),
+        "is_in_watchlist": Watchlist.objects.filter(
+            user=request.user,
+            listing=listing
+        ).exists() if request.user.is_authenticated else False,
+        "comments": Comment.objects.filter(listing=listing),
+        "comment_form": CommentForm(),
+        "winning_bidder": listing.winning_bidder if listing.winning_bidder else None
+    }
 
-    winning_bidder = listing.winning_bidder if listing.winning_bidder else None
+    # Handle GET request
+    if request.method == "GET":
+        return render(request, "auctions/listing.html", context)
 
-    comments = Comment.objects.filter(listing=listing)
-    comment_form = CommentForm()
+    # Handle POST request
+    if not request.user.is_authenticated:
+        return render(request, "auctions/login.html")
 
-    # POST method
-    if request.method == "POST":
-        if not request.user.is_authenticated:
-            return render(request, "auctions/login.html")
-
-        action = request.POST.get("action")
-
-        # Bid
-        if action == "bid":
-            price = Decimal(request.POST["bid_price"])
-            current_price = Decimal(listing.current_price)
-            bidder = request.user
-            if price < listing.starting_bid:
-                message = Message.error(f"Bid price should be greater than starting bid ({listing.starting_bid})")
-                return render(request, "auctions/listing.html", {
-                    "listing": listing,
-                    "message": message,
-                    "bid_price": price
-                })
-            elif price <= current_price:
-                message = Message.error(f"Bid should be greater than current price ({listing.current_price})")
-                return render(request, "auctions/listing.html", {
-                    "listing": listing,
-                    "message": message,
-                    "bid_price": price
-                })
-            else:
-                try:
-                    bid = Bid(
-                        listing=listing,
-                        price=price,
-                        bidder=bidder                     
-                    )
-                    bid.save()
-                    listing.update_price(price)
-                    message = Message.success("Bid placed successfully")
-                    return render(request, "auctions/listing.html", {
-                        "listing": listing,
-                        "message": message,
-                        "bid_price": price
-                    })
-
-                except Exception as e:
-                    message = Message.error(e)
-                    return render(request, "auctions/listing.html", {
-                        "message": message,
-                        "categories": categories
-                    })
-                
-        # Watchlist
-        elif action == "watchlist":
-            try:
-                watchlist_item, created = Watchlist.objects.get_or_create(
-                    user=request.user,
-                    listing=listing
-                )
-                if created:
-                    message = Message.success("Added to watchlist")
-                    is_in_watchlist = Watchlist.objects.filter(
-                        user=request.user,
-                        listing=listing
-                    ).exists()
-                else:
-                    watchlist_item.delete()
-                    message = Message.success("Removed from watchlist")
-                    is_in_watchlist = Watchlist.objects.filter(
-                        user=request.user,
-                        listing=listing
-                    ).exists()
-            except Exception as e:
-                message = Message.error(e)
-
-        # Close auction
-        elif action == "close_auction":
-            try:
-                listing.state = Listing.ListingState.CLOSED
-                highest_bid = Bid.objects.filter(listing=listing).order_by('-price').first()
-                if highest_bid:
-                    listing.winning_bidder = highest_bid.bidder
-                    
-                    listing.save()
-                    winning_bidder = listing.winning_bidder
-                    message = Message.success("Auction closed successfully")
-                else:
-                    message = Message.error("No winning bidder")
-
-            except Exception as e:
-                message = Message.error(e)
-
-        # Comment
-        elif action == "comment":
-            comment_form = CommentForm(request.POST)
-            if comment_form.is_valid():
-                try:
-                    Comment.objects.create(
-                        listing=listing,
-                        content=comment_form.cleaned_data['content'],
-                        commenter=request.user
-                    )
-                    message = Message.success("Comment added successfully")
-                    comment_form = CommentForm()  # Clear form content
-                except Exception as e:
-                    message = Message.error("Failed to add comment. Please try again.")
-            else:
-                message = Message.error("Please check your input.")
-        
-        return render(request, "auctions/listing.html", {
-            "listing": listing,
-            "categories": categories,
-            "message": message if message else None,
-            "is_in_watchlist": is_in_watchlist,
-            "comments": comments,
-            "winning_bidder": winning_bidder
-        })
+    action = request.POST.get("action")
     
-    # GET method
-    return render(request, "auctions/listing.html", {
-            "listing": listing,
-            "categories": categories,
-            "is_in_watchlist": is_in_watchlist,
-            "comments": comments
-        })
+    # Handle different actions
+    if action == "bid":
+        handle_bid(request, listing, context)
+    elif action == "watchlist":
+        handle_watchlist(request, listing, context)
+    elif action == "close_auction":
+        handle_close_auction(listing, context)
+    elif action == "comment":
+        handle_comment(request, listing, context)
+
+    return render(request, "auctions/listing.html", context)
 
 
 @login_required
