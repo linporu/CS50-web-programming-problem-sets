@@ -151,10 +151,20 @@ def active_listings(request):
 def listing_page(request, listing_id):
     listing = get_object_or_404(Listing, pk=listing_id)
     categories = listing.categories.all()
-
-    # Bid
+    is_in_watchlist = Watchlist.objects.filter(
+        user=request.user,
+        listing=listing
+    ).exists() if request.user.is_authenticated else False
+    
+    # POST method
     if request.method == "POST":
-        if request.user.is_authenticated:
+        if not request.user.is_authenticated:
+            return render(request, "auctions/login.html")
+
+        action = request.POST.get("action")
+
+        # Bid
+        if action == "bid":
             price = Decimal(request.POST["bid_price"])
             current_price = Decimal(listing.current_price)
             bidder = request.user
@@ -194,11 +204,42 @@ def listing_page(request, listing_id):
                         "message": message,
                         "categories": categories
                     })
-        return render(request, "auctions/login.html")
+        # Watchlist
+        elif action == "watchlist":
+            try:
+                watchlist_item, created = Watchlist.objects.get_or_create(
+                    user=request.user,
+                    listing=listing
+                )
+                if created:
+                    message = Message.success("Added to watchlist")
+                    is_in_watchlist = Watchlist.objects.filter(
+                        user=request.user,
+                        listing=listing
+                    ).exists()
+                else:
+                    watchlist_item.delete()
+                    message = Message.success("Removed from watchlist")
+                    is_in_watchlist = Watchlist.objects.filter(
+                        user=request.user,
+                        listing=listing
+                    ).exists()
+            except Exception as e:
+                message = Message.error(e)
+        
+        return render(request, "auctions/listing.html", {
+            "listing": listing,
+            "categories": categories,
+            "message": message if message else None,
+            "is_in_watchlist": is_in_watchlist
+        })
+    
+    # GET method
     return render(request, "auctions/listing.html", {
-        "listing": listing,
-        "categories": categories
-    })
+            "listing": listing,
+            "categories": categories,
+            "is_in_watchlist": is_in_watchlist
+        })
 
 
 @login_required
@@ -272,4 +313,12 @@ def category(request, category_id):
     return render(request, "auctions/category.html", {
         "category": category,
         "listings": active_listings
+    })
+
+
+@login_required
+def watchlist(request):
+    watched_listings = Listing.objects.filter(watching_users__user=request.user)
+    return render(request, "auctions/watchlist.html",{
+        "listings": watched_listings
     })

@@ -17,20 +17,38 @@
     {% if listing.url %}
         <img src="{{ listing.url }}" alt="{{ listing.title }}" class="listing-image">
     {% endif %}
+
+    <!--Edit listing-->
+    {% if user == listing.created_by %}
+        <a href="{% url 'edit_listing' listing.id %}" class="btn btn-primary">Edit Listing</a>
+    {% endif %}
+
+    <!--Watchlist-->
+    {% if user.is_authenticated %}
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="watchlist">
+            <button type="submit" class="btn btn-{% if is_in_watchlist %}danger{% else %}primary{% endif %}">
+                {% if is_in_watchlist %}
+                    Remove from Watchlist
+                {% else %}
+                    Add to Watchlist
+                {% endif %}
+            </button>
+        </form>
+    {% endif %}
     
-    <!--Logged in only-->
+    <!--Bid-->
     {% if user.is_authenticated %}
         <form action="{% url 'listing_page' listing.id %}" method="POST">
             {% csrf_token %}
+            <input type="hidden" name="action" value="bid">
             <input type="number" name="bid_price" placeholder="Bid price" required
                 value="{% if bid_price %}{{ bid_price }}{% else %}{{ listing.current_price }}{% endif %}" step="0.01" min="{{ listing.current_price }}">
             <input type="submit" value="Bid">
         </form>
     {% endif %}
 
-    <!--Listing creater only-->
-    {% if user == listing.created_by %}
-        <a href="{% url 'edit_listing' listing.id %}" class="btn btn-primary">Edit Listing</a>
-    {% endif %}
+    
 
 {% endblock %}

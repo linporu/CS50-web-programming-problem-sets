@@ -97,10 +97,14 @@ class Watchlist(models.Model):
     user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name="watched_listings"
+        related_name="watching_listings"
     )
     listing = models.ForeignKey(
         Listing,
         on_delete=models.CASCADE,
         related_name="watching_users"
     )
+
+    class Meta:
+        # Ensure each user can only have one watchlist item per listing
+        unique_together = ['user', 'listing']
