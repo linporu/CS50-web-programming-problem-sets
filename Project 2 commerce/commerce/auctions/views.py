@@ -152,11 +152,13 @@ def active_listings(request):
 def listing_page(request, listing_id):
     listing = get_object_or_404(Listing, pk=listing_id)
     categories = listing.categories.all()
-
+    
     is_in_watchlist = Watchlist.objects.filter(
         user=request.user,
         listing=listing
     ).exists() if request.user.is_authenticated else False
+
+    winning_bidder = listing.winning_bidder if listing.winning_bidder else None
 
     comments = Comment.objects.filter(listing=listing)
     comment_form = CommentForm()
@@ -233,6 +235,23 @@ def listing_page(request, listing_id):
             except Exception as e:
                 message = Message.error(e)
 
+        # Close auction
+        elif action == "close_auction":
+            try:
+                listing.state = Listing.ListingState.CLOSED
+                highest_bid = Bid.objects.filter(listing=listing).order_by('-price').first()
+                if highest_bid:
+                    listing.winning_bidder = highest_bid.bidder
+                    
+                    listing.save()
+                    winning_bidder = listing.winning_bidder
+                    message = Message.success("Auction closed successfully")
+                else:
+                    message = Message.error("No winning bidder")
+
+            except Exception as e:
+                message = Message.error(e)
+
         # Comment
         elif action == "comment":
             comment_form = CommentForm(request.POST)
@@ -255,7 +274,8 @@ def listing_page(request, listing_id):
             "categories": categories,
             "message": message if message else None,
             "is_in_watchlist": is_in_watchlist,
-            "comments": comments
+            "comments": comments,
+            "winning_bidder": winning_bidder
         })
     
     # GET method

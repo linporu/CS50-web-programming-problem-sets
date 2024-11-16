@@ -34,6 +34,14 @@ class Listing(models.Model):
     
     categories = models.ManyToManyField('Category', related_name='listings', blank=True)
     
+    winning_bidder = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='won_listings'
+    )
+
     def save(self, *args, **kwargs):
         # If this is a new object (no pk yet)
         if not self.pk:

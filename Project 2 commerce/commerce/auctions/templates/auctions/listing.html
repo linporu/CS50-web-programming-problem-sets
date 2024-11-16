@@ -2,6 +2,14 @@
 
 {% block body %}
 
+    <!--Winning-bidder's alert-->
+    {% if user == winning_bidder %}
+        <div class="alert alert-success" role="alert">
+            You are the winning bidder!
+        </div>
+    {% endif %}
+
+    <!--Listing detail-->
     <h2>Listing Page</h2>
     <h3>{{ listing.title }}</h3>
     <p>{{ listing.description }}</p>
@@ -39,7 +47,7 @@
     {% endif %}
     
     <!--Bid-->
-    {% if user.is_authenticated %}
+    {% if user.is_authenticated and listing.state == listing.ListingState.ACTIVE %}
         <h3>Bid</h3>
         <form action="{% url 'listing_page' listing.id %}" method="POST">
             {% csrf_token %}
@@ -47,6 +55,21 @@
             <input type="number" name="bid_price" placeholder="Bid price" required
                 value="{% if bid_price %}{{ bid_price }}{% else %}{{ listing.current_price }}{% endif %}" step="0.01" min="{{ listing.current_price }}">
             <input type="submit" value="bid">
+        </form>
+    {% endif %}
+
+    
+
+    <!--Close auction-->
+    {% if user == listing.created_by %}
+        <form method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="close_auction">
+            {% if listing.state == 'ACTIVE' %}
+                <button type="submit" class="btn btn-danger">Close Auction</button>
+            {% else %}
+                <button type="button" class="btn btn-secondary" disabled>Auction Closed</button>
+            {% endif %}
         </form>
     {% endif %}
 
