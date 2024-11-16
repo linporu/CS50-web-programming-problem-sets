@@ -50,7 +50,7 @@ def handle_bid(request: HttpRequest, listing: Listing, context: Dict[str, Any]) 
         )
     else:
         try:
-            bid = Bid.objects.create(
+            Bid.objects.create(
                 listing=listing,
                 price=price,
                 bidder=request.user
