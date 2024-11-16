@@ -69,13 +69,13 @@ class Comment(models.Model):
         on_delete=models.CASCADE,
         related_name="comments",
     )
-    comment = models.TextField()
+    content = models.TextField()
     commenter = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name="comments"
     )
-    comment_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class Category(models.Model):

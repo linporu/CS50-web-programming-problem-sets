@@ -6,6 +6,7 @@ from django.db.models import Count, Q
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
+from .forms import CommentForm
 from .models import User, Listing, Bid, Comment, Category, Watchlist
 from .utils import *
 
@@ -151,11 +152,15 @@ def active_listings(request):
 def listing_page(request, listing_id):
     listing = get_object_or_404(Listing, pk=listing_id)
     categories = listing.categories.all()
+
     is_in_watchlist = Watchlist.objects.filter(
         user=request.user,
         listing=listing
     ).exists() if request.user.is_authenticated else False
-    
+
+    comments = Comment.objects.filter(listing=listing)
+    comment_form = CommentForm()
+
     # POST method
     if request.method == "POST":
         if not request.user.is_authenticated:
@@ -185,7 +190,7 @@ def listing_page(request, listing_id):
             else:
                 try:
                     bid = Bid(
-                        listing= listing,
+                        listing=listing,
                         price=price,
                         bidder=bidder                     
                     )
@@ -204,6 +209,7 @@ def listing_page(request, listing_id):
                         "message": message,
                         "categories": categories
                     })
+                
         # Watchlist
         elif action == "watchlist":
             try:
@@ -226,19 +232,38 @@ def listing_page(request, listing_id):
                     ).exists()
             except Exception as e:
                 message = Message.error(e)
+
+        # Comment
+        elif action == "comment":
+            comment_form = CommentForm(request.POST)
+            if comment_form.is_valid():
+                try:
+                    Comment.objects.create(
+                        listing=listing,
+                        content=comment_form.cleaned_data['content'],
+                        commenter=request.user
+                    )
+                    message = Message.success("Comment added successfully")
+                    comment_form = CommentForm()  # Clear form content
+                except Exception as e:
+                    message = Message.error("Failed to add comment. Please try again.")
+            else:
+                message = Message.error("Please check your input.")
         
         return render(request, "auctions/listing.html", {
             "listing": listing,
             "categories": categories,
             "message": message if message else None,
-            "is_in_watchlist": is_in_watchlist
+            "is_in_watchlist": is_in_watchlist,
+            "comments": comments
         })
     
     # GET method
     return render(request, "auctions/listing.html", {
             "listing": listing,
             "categories": categories,
-            "is_in_watchlist": is_in_watchlist
+            "is_in_watchlist": is_in_watchlist,
+            "comments": comments
         })
 
 

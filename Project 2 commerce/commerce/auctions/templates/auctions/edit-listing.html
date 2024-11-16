@@ -13,7 +13,7 @@
         <input type="number" name="starting_bid" placeholder="Starting bid" required
             value="{{ listing.starting_bid|default:'' }}" step="0.01" min="0.01">
         <div class="form-group">
-            <label>分類</label>
+            <label>categories</label>
             <div class="checkbox-group">
                 {% for category in categories %}
                     <div class="form-check">
@@ -29,7 +29,7 @@
                     </div>
                 {% endfor %}
             </div>
-            <small class="form-text text-muted">可以選擇多個分類</small>
+            <small class="form-text text-muted">Press Ctrl to choose multiple categories</small>
         </div>
         <input type="url" name="url" placeholder="Image URL (optional)"
             value="{{ listing.url|default:'' }}">

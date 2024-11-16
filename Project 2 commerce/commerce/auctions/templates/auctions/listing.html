@@ -40,15 +40,44 @@
     
     <!--Bid-->
     {% if user.is_authenticated %}
+        <h3>Bid</h3>
         <form action="{% url 'listing_page' listing.id %}" method="POST">
             {% csrf_token %}
             <input type="hidden" name="action" value="bid">
             <input type="number" name="bid_price" placeholder="Bid price" required
                 value="{% if bid_price %}{{ bid_price }}{% else %}{{ listing.current_price }}{% endif %}" step="0.01" min="{{ listing.current_price }}">
-            <input type="submit" value="Bid">
+            <input type="submit" value="bid">
         </form>
     {% endif %}
 
-    
+    <!--Add new comment-->
+    {% if user.is_authenticated %}
+        <h3>Add new comment</h3>
+        <form action="{% url 'listing_page' listing.id %}" method="POST">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="comment">
+            <input type="textarea" name="content" placeholder="Comment"
+                value="{{ content|default:'' }}">
+            <input type="submit" value="comment">
+        </form>
+    {% endif %}
+
+    <!-- Existing comments -->
+    <div class="comments-section">
+        <h3>Comments</h3>
+        {% if comments %}
+            {% for comment in comments %}
+                <div class="comment">
+                    <p class="comment-content">{{ comment.content }}</p>
+                    <small class="comment-meta">
+                        By {{ comment.commenter.username }} 
+                        on {{ comment.created_at|date:"Y-m-d H:i" }}
+                    </small>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No comment yet</p>
+        {% endif %}
+    </div>
 
 {% endblock %}
