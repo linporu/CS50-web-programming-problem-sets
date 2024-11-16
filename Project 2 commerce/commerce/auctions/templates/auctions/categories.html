@@ -1,0 +1,15 @@
+{% extends "auctions/layout.html" %}
+
+{% block body %}
+    <h2>All Categories</h2>
+    <div class="listing-grid">
+        {% for category in categories %}
+            <a href="{% url 'category' category.id %}" class="listing-block-link">
+                <div class="listing-block">
+                    <h3>{{ category.name }}</h3>
+                    <p>{{ category.active_count }} active {% if category.active_count <= 1 %}listing{% else %}listings{% endif %}</p>
+                </div>
+            </a>
+        {% endfor %}
+    </div>
+{% endblock %}

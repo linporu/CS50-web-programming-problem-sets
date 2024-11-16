@@ -8,47 +8,51 @@ form {
     gap: 1rem;
 }
 
-.listing-block {
-    padding: 15px;
-    margin: 10px 0;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background-color: #fff;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.listing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.5rem;
+    padding: 1rem;
 }
 
 .listing-block-link {
-    display: block;
     text-decoration: none;
     color: inherit;
-    transition: all 0.3s ease;
+    display: block;
 }
 
-.listing-block-link:hover {
+.listing-block {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+    background: white;
+    height: 100%;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.listing-block:hover {
     transform: translateY(-3px);
-    text-decoration: none;
-}
-
-.listing-block-link:hover .listing-block {
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    border-color: #007bff;
-}
-
-.listing-image {
-    max-width: 100%;
-    height: auto;
-    border-radius: 4px;
-    margin-top: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 .listing-block h3 {
+    margin: 0 0 0.5rem 0;
     color: #333;
-    margin-bottom: 10px;
+    font-size: 1.2rem;
 }
 
 .listing-block p {
+    margin: 0.5rem 0;
     color: #666;
-    margin-bottom: 8px;
+}
+
+.listing-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-top: 0.5rem;
 }
 
 .custom-select {
@@ -72,4 +76,11 @@ form {
 
 .custom-select option:checked {
     background-color: #e9ecef;
+}
+
+@media (max-width: 768px) {
+    .listing-grid {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+    }
 }

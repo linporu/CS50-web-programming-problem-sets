@@ -2,6 +2,7 @@ from decimal import Decimal
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError
+from django.db.models import Count, Q
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
@@ -249,3 +250,26 @@ def edit_listing(request, listing_id):
         "categories": categories
     })
     
+
+def categories(request):
+    categories = Category.objects.annotate(
+        active_count=Count('listings', 
+            filter=Q(listings__state=Listing.ListingState.ACTIVE)
+        )
+    )
+    return render(request, "auctions/categories.html", {
+        "categories": categories
+    })
+
+
+def category(request, category_id):
+    category = Category.objects.get(pk=category_id)
+    active_listings = Listing.objects.filter(
+        categories=category,
+        state=Listing.ListingState.ACTIVE
+    )
+    
+    return render(request, "auctions/category.html", {
+        "category": category,
+        "listings": active_listings
+    })
