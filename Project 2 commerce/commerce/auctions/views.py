@@ -8,14 +8,15 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from .forms import CommentForm
 from .models import User, Listing, Bid, Comment, Category, Watchlist
-from .utils import Message, handle_bid, handle_watchlist, handle_close_auction, handle_comment
+from .utils import Message, handle_bid, handle_watchlist, handle_close_auction, handle_comment, handle_listing_creation, validate_listing_input
 
 
 def index(request):
-    listings = Listing.objects.filter(state=Listing.ListingState.ACTIVE)[:10] # Only top 10 active listings
-    return render(request, "auctions/index.html", {
+    context = {
         "listings": listings
-    })
+    }
+    listings = Listing.objects.filter(state=Listing.ListingState.ACTIVE)[:10] # Only top 10 active listings
+    return render(request, "auctions/index.html", context)
 
 
 def login_view(request):
@@ -75,71 +76,35 @@ def register(request):
 
 @login_required
 def create_listing(request):
-    all_categories = Category.objects.all()
+    # Initialize basic context
+    context = {
+        "all_categories": Category.objects.all()
+    }
 
-    if request.method == "POST":
-        title = request.POST["title"]
-        description = request.POST["description"]
-        starting_bid = float(request.POST["starting_bid"])
-        category_ids = request.POST.getlist("categories")
-        selected_categories = Category.objects.filter(id__in=category_ids) if category_ids else None
-        url = request.POST.get("url", "")  # Optional field
-        created_by = request.user
+    # Return directly for GET request
+    if request.method == "GET":
+        return render(request, "auctions/create-listing.html", context)
 
-        # Input validation
-        errors = []
-        if not title:
-            errors.append("Title is required")
-        if not description:
-            errors.append("Description is required")
-        if not starting_bid or float(starting_bid) <= 0:
-            errors.append("Starting bid must be greater than 0")
+    # Collect POST data
+    listing_data = {
+        "title": request.POST["title"],
+        "description": request.POST["description"],
+        "starting_bid": request.POST["starting_bid"],
+        "category_ids": request.POST.getlist("categories"),
+        "url": request.POST.get("url", ""),
+        "created_by": request.user
+    }
 
-        if errors:
-            message = Message.error("Please correct the following errors:", errors)
-            return render(request, "auctions/create-listing.html", {
-                "message": message,
-                "listing": {  # Keep input data
-                    "title": title,
-                    "description": description,
-                    "starting_bid": starting_bid,
-                    "categories": selected_categories,
-                    "url": url
-                },
-                "all_categories": all_categories
-            })
-        
-        try:
-            listing = Listing(
-                title=title,
-                description=description,
-                starting_bid=starting_bid,
-                url=url,
-                created_by=created_by
-            )
-            listing.save()
-            
-            if category_ids:
-                listing.categories.set(selected_categories)
-            else:
-                message = Message.warning("Categories do not exist")
-                return render(request, "auctions/create-listing.html", {
-                    "message": message,
-                    "all_categories": all_categories
-                })
+    # Validate input
+    if not validate_listing_input(listing_data, context):
+        return render(request, "auctions/create-listing.html", context)
 
-            return redirect('listing_page', listing_id=listing.id)
-            
-        except Exception as e:
-            message = Message.error(e)
-            return render(request, "auctions/create-listing.html", {
-                "message": message,
-                "all_categories": all_categories
-            })
+    # Handle creation logic
+    success, listing_id = handle_listing_creation(listing_data, context)
+    if success:
+        return redirect('listing_page', listing_id=listing_id)
     
-    return render(request, "auctions/create-listing.html", {
-        "all_categories": all_categories
-    })
+    return render(request, "auctions/create-listing.html", context)
 
 
 def active_listings(request):
@@ -169,10 +134,11 @@ def listing_page(request, listing_id):
     if request.method == "GET":
         return render(request, "auctions/listing.html", context)
 
-    # Handle POST request
+    # Authenticate before handling POST request
     if not request.user.is_authenticated:
         return render(request, "auctions/login.html")
 
+    # Handle POST request
     action = request.POST.get("action")
     
     # Handle different actions

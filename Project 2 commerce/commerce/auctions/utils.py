@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
 from django.http import HttpRequest
-from .models import Bid, Watchlist, Comment, Listing
+from .models import Bid, Watchlist, Comment, Listing, Category
 from .forms import CommentForm
 
 
@@ -136,4 +136,85 @@ def handle_comment(request: HttpRequest, listing: Listing, context: Dict[str, An
     else:
         context["message"] = Message.error("Please check your input.")
 
+
+def validate_listing_input(listing: dict, context: dict) -> bool:
+    """Validate input data for creating a listing
+    
+    Args:
+        listing: Dictionary containing listing data from form
+        context: Context dictionary to update
+    
+    Returns:
+        bool: Whether validation passed
+    """
+    errors = []
+    
+    # Basic field validation
+    if not listing["title"]:
+        errors.append("Title is required")
+    if not listing["description"]:
+        errors.append("Description is required")
+    
+    # Starting bid validation
+    try:
+        starting_bid = float(listing["starting_bid"])
+        if starting_bid <= 0:
+            errors.append("Starting bid must be greater than 0")
+    except (ValueError, TypeError):
+        errors.append("Invalid starting bid value")
+    
+    # If there are errors, update context and preserve listing data
+    if errors:
+        context.update({
+            "message": Message.error("Please correct the following errors:", errors),
+            "listing": {
+                "title": listing["title"],
+                "description": listing["description"],
+                "starting_bid": listing.get("starting_bid", ""),
+                "url": listing["url"],
+                "categories": Category.objects.filter(
+                    id__in=listing["category_ids"]
+                ) if listing["category_ids"] else None
+            }
+        })
+        return False
+    
+    return True
+
+
+def handle_listing_creation(listing: dict, context: dict) -> tuple[bool, int]:
+    """Handle listing creation logic
+    
+    Args:
+        listing: Dictionary containing listing data from form
+        context: Context dictionary to update
+    
+    Returns:
+        tuple[bool, int]: (success status, created listing ID)
+    """
+    try:
+        # Create listing
+        created_listing = Listing.objects.create(
+            title=listing["title"],
+            description=listing["description"],
+            starting_bid=Decimal(listing["starting_bid"]),
+            url=listing["url"],
+            created_by=listing["created_by"]
+        )
+        
+        # Handle categories
+        if listing["category_ids"]:
+            selected_categories = Category.objects.filter(
+                id__in=listing["category_ids"]
+            )
+            created_listing.categories.set(selected_categories)
+        else:
+            context["message"] = Message.warning("Categories do not exist")
+            return False, None
+
+        return True, created_listing.id
+        
+    except Exception as e:
+        context["message"] = Message.error(str(e))
+        return False, None
 
