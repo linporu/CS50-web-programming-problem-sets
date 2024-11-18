@@ -1,0 +1,175 @@
+# Mail Project Work Breakdown Structure
+
+## 1. Basic Setup & Infrastructure
+- [ ] Review and understand the API endpoints documentation
+  - [ ] Study GET /emails/<mailbox> endpoint
+  - [ ] Study GET /emails/<email_id> endpoint
+  - [ ] Study POST /emails endpoint
+  - [ ] Study PUT /emails/<email_id> endpoint
+- [ ] Plan the single-page application structure
+  - [ ] Design component hierarchy
+  - [ ] Plan state management
+  - [ ] Define routing/view switching strategy
+- [ ] Set up basic event listeners for navigation
+  - [ ] Add listeners for inbox link
+  - [ ] Add listeners for sent link
+  - [ ] Add listeners for archive link
+  - [ ] Add listeners for compose button
+
+## 2. Email Composition & Sending (Send Mail)
+- [ ] Implement email composition form handling
+  - [ ] Create form submission handler
+  - [ ] Add recipients field handling
+  - [ ] Add subject field handling
+  - [ ] Add body field handling
+- [ ] Add form validation for required fields
+  - [ ] Validate recipients format
+  - [ ] Check for empty subject
+  - [ ] Check for empty body
+  - [ ] Display validation errors
+- [ ] Create POST request function for sending emails
+  - [ ] Set up fetch request
+  - [ ] Add error handling
+  - [ ] Format request body
+- [ ] Implement redirect to sent mailbox after sending
+  - [ ] Clear form data
+  - [ ] Switch view to sent mailbox
+  - [ ] Load sent emails
+- [ ] Test email sending functionality
+  - [ ] Test with valid inputs
+  - [ ] Test with invalid inputs
+  - [ ] Verify sent mailbox updates
+
+## 3. Mailbox Display (Mailbox)
+- [ ] Create GET request function for fetching mailbox emails
+  - [ ] Implement fetch request
+  - [ ] Add error handling
+  - [ ] Parse response data
+- [ ] Implement mailbox display layout
+  - [ ] Create container structure
+  - [ ] Add email list layout
+  - [ ] Style mailbox header
+- [ ] Create email preview box component
+  - [ ] Design box structure
+  - [ ] Add sender display
+  - [ ] Add subject display
+  - [ ] Add timestamp display
+- [ ] Style email boxes (border, background)
+  - [ ] Add border styles
+  - [ ] Set padding/margins
+  - [ ] Implement hover effects
+- [ ] Implement read/unread visual states
+  - [ ] Add background color logic
+  - [ ] Style read emails
+  - [ ] Style unread emails
+- [ ] Test mailbox loading and display
+  - [ ] Test inbox loading
+  - [ ] Test sent mailbox loading
+  - [ ] Test archive loading
+
+## 4. Email Viewing (View Email)
+- [ ] Create GET request function for individual emails
+  - [ ] Implement fetch request
+  - [ ] Add error handling
+  - [ ] Parse email details
+- [ ] Design and implement email detail view
+  - [ ] Create view container
+  - [ ] Add sender/recipients display
+  - [ ] Add subject/timestamp display
+  - [ ] Add email body display
+- [ ] Add view switching functionality
+  - [ ] Implement view toggle logic
+  - [ ] Add transition effects
+  - [ ] Handle back navigation
+- [ ] Implement mark-as-read functionality
+  - [ ] Create PUT request
+  - [ ] Update read status
+  - [ ] Refresh view
+- [ ] Test email viewing and status updates
+  - [ ] Test email opening
+  - [ ] Test read status
+  - [ ] Test view transitions
+
+## 5. Archive Functionality (Archive and Unarchive)
+- [ ] Add archive/unarchive buttons
+  - [ ] Create button components
+  - [ ] Add conditional rendering
+  - [ ] Style buttons
+- [ ] Implement PUT request for archive status
+  - [ ] Create update function
+  - [ ] Handle success/failure
+  - [ ] Update UI state
+- [ ] Add archive status toggle logic
+  - [ ] Implement toggle function
+  - [ ] Update button states
+  - [ ] Handle edge cases
+- [ ] Implement inbox reload after status change
+  - [ ] Clear current view
+  - [ ] Reload inbox
+  - [ ] Update UI
+- [ ] Test archive functionality
+  - [ ] Test archiving
+  - [ ] Test unarchiving
+  - [ ] Verify inbox updates
+
+## 6. Reply Feature (Reply)
+- [ ] Add reply button to email view
+  - [ ] Create button component
+  - [ ] Add click handler
+  - [ ] Style button
+- [ ] Implement reply form pre-fill logic
+  - [ ] Set recipient field
+  - [ ] Handle subject line
+  - [ ] Format reply body
+- [ ] Handle subject line prefix
+  - [ ] Check existing prefix
+  - [ ] Add "Re:" if needed
+  - [ ] Handle multiple replies
+- [ ] Create email quote formatting
+  - [ ] Format timestamp
+  - [ ] Format sender info
+  - [ ] Add quote styling
+- [ ] Test reply functionality
+  - [ ] Test form pre-fill
+  - [ ] Test sending replies
+  - [ ] Verify threading
+
+## 7. Testing & Refinement
+- [ ] Test all features in combination
+  - [ ] Test user flows
+  - [ ] Test feature interactions
+  - [ ] Check performance
+- [ ] Check edge cases
+  - [ ] Test empty states
+  - [ ] Test error scenarios
+  - [ ] Test large data sets
+- [ ] Verify API integration
+  - [ ] Check all endpoints
+  - [ ] Verify error handling
+  - [ ] Test rate limiting
+- [ ] Optimize code and remove redundancies
+  - [ ] Refactor common functions
+  - [ ] Optimize DOM updates
+  - [ ] Clean up variables
+- [ ] Final testing across all features
+  - [ ] Cross-browser testing
+  - [ ] Mobile responsiveness
+  - [ ] Performance testing
+
+## 8. Documentation & Cleanup
+- [ ] Comment code
+  - [ ] Add function documentation
+  - [ ] Document complex logic
+  - [ ] Add usage examples
+- [ ] Clean up console.logs
+  - [ ] Remove debug logs
+  - [ ] Add error logging
+  - [ ] Format remaining logs
+- [ ] Format code
+  - [ ] Apply consistent styling
+  - [ ] Fix indentation
+  - [ ] Organize imports
+- [ ] Final review
+  - [ ] Code review
+  - [ ] Documentation review
+  - [ ] Final testing pass
