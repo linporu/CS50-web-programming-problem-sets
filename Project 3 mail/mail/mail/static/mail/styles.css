@@ -1,3 +1,42 @@
 textarea {
     min-height: 400px;
 }
+
+.email-item {
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  cursor: pointer;
+  background-color: white;
+  transition: all 0.3s ease;
+}
+
+.email-item:hover {
+  transform: translateX(5px);
+}
+
+.email-sender {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.email-subject {
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.email-timestamp {
+  color: #666;
+  font-size: 0.9em;
+}
+
+.email-unread {
+  font-weight: bold;
+  background-color: #fff;
+}
+
+.email-read {
+  font-weight: normal;
+  background-color: #c8c8c8;
+}

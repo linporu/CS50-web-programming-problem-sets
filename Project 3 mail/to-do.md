@@ -32,9 +32,9 @@
   - [x] Add error handling
   - [x] Format request body
 - [x] Implement redirect to sent mailbox after sending
-  - [ ] Clear form data
+  - [x] Clear form data
   - [x] Switch view to sent mailbox
-  - [ ] Load sent emails
+  - [x] Load sent emails
 - [x] Test email sending functionality
   - [x] Test with valid inputs
   - [x] Test with invalid inputs
@@ -47,22 +47,22 @@
   - [x] Parse response data
 - [ ] Implement mailbox display layout
   - [x] Create container structure
-  - [ ] Add email list layout
-  - [ ] Style mailbox header
+  - [x] Add email list layout
+  - [x] Style mailbox header
 - [x] Create email preview box component
   - [x] Design box structure
   - [x] Add sender display
   - [x] Add subject display
   - [x] Add timestamp display
-- [ ] Style email boxes (border, background)
-  - [ ] Add border styles
-  - [ ] Set padding/margins
-  - [ ] Implement hover effects
-- [ ] Implement read/unread visual states
-  - [ ] Add background color logic
-  - [ ] Style read emails
-  - [ ] Style unread emails
-- [ ] Test mailbox loading and display
+- [x] Style email boxes (border, background)
+  - [x] Add border styles
+  - [x] Set padding/margins
+  - [x] Implement hover effects
+- [x] Implement read/unread visual states
+  - [x] Add background color logic
+  - [x] Style read emails
+  - [x] Style unread emails
+- [x] Test mailbox loading and display
   - [x] Test inbox loading
   - [x] Test sent mailbox loading
   - [x] Test archive loading

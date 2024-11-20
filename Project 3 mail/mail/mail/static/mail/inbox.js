@@ -96,11 +96,26 @@ function render_email_div(emails) {
   // Iterate through emails
   emails.forEach(mail => {
     const mail_div = document.createElement('div');
+
+    mail_div.classList.add('email-item');
+    
+    // Change background color to grey after mail is read
+    if (!mail.read) {
+      mail_div.classList.add('email-unread');
+    } else {
+      mail_div.classList.add('email-read');
+    }
     
     mail_div.innerHTML = `
-      From: ${mail.sender}
-      Subject: ${mail.subject}
-      Time: ${mail.timestamp}
+      <div class="email-sender">
+        ${mail.sender}
+      </div>
+      <div class="email-subject">
+        ${mail.subject}
+      </div>
+      <div class="email-timestamp">
+        ${mail.timestamp}
+      </div>
     `;
     
     mail_div.addEventListener('click', function() {
