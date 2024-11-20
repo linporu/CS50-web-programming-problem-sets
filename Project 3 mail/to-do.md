@@ -1,44 +1,44 @@
 # Mail Project Work Breakdown Structure
 
 ## 1. Basic Setup & Infrastructure
-- [ ] Review and understand the API endpoints documentation
-  - [ ] Study GET /emails/<mailbox> endpoint
-  - [ ] Study GET /emails/<email_id> endpoint
-  - [ ] Study POST /emails endpoint
-  - [ ] Study PUT /emails/<email_id> endpoint
-- [ ] Plan the single-page application structure
-  - [ ] Design component hierarchy
-  - [ ] Plan state management
-  - [ ] Define routing/view switching strategy
-- [ ] Set up basic event listeners for navigation
-  - [ ] Add listeners for inbox link
-  - [ ] Add listeners for sent link
-  - [ ] Add listeners for archive link
-  - [ ] Add listeners for compose button
+- [x] Review and understand the API endpoints documentation
+  - [x] Study GET /emails/<mailbox> endpoint
+  - [x] Study GET /emails/<email_id> endpoint
+  - [x] Study POST /emails endpoint
+  - [x] Study PUT /emails/<email_id> endpoint
+- [x] Plan the single-page application structure
+  - [x] Design component hierarchy
+  - [x] Plan state management
+  - [x] Define routing/view switching strategy
+- [x] Set up basic event listeners for navigation
+  - [x] Add listeners for inbox link
+  - [x] Add listeners for sent link
+  - [x] Add listeners for archive link
+  - [x] Add listeners for compose button
 
 ## 2. Email Composition & Sending (Send Mail)
-- [ ] Implement email composition form handling
-  - [ ] Create form submission handler
-  - [ ] Add recipients field handling
-  - [ ] Add subject field handling
-  - [ ] Add body field handling
-- [ ] Add form validation for required fields
-  - [ ] Validate recipients format
-  - [ ] Check for empty subject
-  - [ ] Check for empty body
-  - [ ] Display validation errors
-- [ ] Create POST request function for sending emails
-  - [ ] Set up fetch request
-  - [ ] Add error handling
-  - [ ] Format request body
-- [ ] Implement redirect to sent mailbox after sending
+- [x] Implement email composition form handling
+  - [x] Create form submission handler
+  - [x] Add recipients field handling
+  - [x] Add subject field handling
+  - [x] Add body field handling
+- [x] Add form validation for required fields
+  - [x] Validate recipients format
+  - [x] Check for empty subject
+  - [x] Check for empty body
+  - [x] Display validation errors
+- [x] Create POST request function for sending emails
+  - [x] Set up fetch request
+  - [x] Add error handling
+  - [x] Format request body
+- [x] Implement redirect to sent mailbox after sending
   - [ ] Clear form data
-  - [ ] Switch view to sent mailbox
+  - [x] Switch view to sent mailbox
   - [ ] Load sent emails
-- [ ] Test email sending functionality
-  - [ ] Test with valid inputs
-  - [ ] Test with invalid inputs
-  - [ ] Verify sent mailbox updates
+- [x] Test email sending functionality
+  - [x] Test with valid inputs
+  - [x] Test with invalid inputs
+  - [x] Verify sent mailbox updates
 
 ## 3. Mailbox Display (Mailbox)
 - [ ] Create GET request function for fetching mailbox emails
