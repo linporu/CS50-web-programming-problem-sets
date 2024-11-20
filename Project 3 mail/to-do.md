@@ -41,19 +41,19 @@
   - [x] Verify sent mailbox updates
 
 ## 3. Mailbox Display (Mailbox)
-- [ ] Create GET request function for fetching mailbox emails
-  - [ ] Implement fetch request
-  - [ ] Add error handling
-  - [ ] Parse response data
+- [x] Create GET request function for fetching mailbox emails
+  - [x] Implement fetch request
+  - [x] Add error handling
+  - [x] Parse response data
 - [ ] Implement mailbox display layout
-  - [ ] Create container structure
+  - [x] Create container structure
   - [ ] Add email list layout
   - [ ] Style mailbox header
-- [ ] Create email preview box component
-  - [ ] Design box structure
-  - [ ] Add sender display
-  - [ ] Add subject display
-  - [ ] Add timestamp display
+- [x] Create email preview box component
+  - [x] Design box structure
+  - [x] Add sender display
+  - [x] Add subject display
+  - [x] Add timestamp display
 - [ ] Style email boxes (border, background)
   - [ ] Add border styles
   - [ ] Set padding/margins
@@ -63,9 +63,9 @@
   - [ ] Style read emails
   - [ ] Style unread emails
 - [ ] Test mailbox loading and display
-  - [ ] Test inbox loading
-  - [ ] Test sent mailbox loading
-  - [ ] Test archive loading
+  - [x] Test inbox loading
+  - [x] Test sent mailbox loading
+  - [x] Test archive loading
 
 ## 4. Email Viewing (View Email)
 - [ ] Create GET request function for individual emails
