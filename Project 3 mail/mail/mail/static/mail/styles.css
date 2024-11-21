@@ -40,3 +40,31 @@ textarea {
   font-weight: normal;
   background-color: #c8c8c8;
 }
+
+/* Email view styles */
+.email-view {
+  padding: 20px;
+  margin: 15px 0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #fff;
+}
+
+.email-view .email-sender,
+.email-view .email-recipients,
+.email-view .email-subject,
+.email-view .email-timestamp {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.email-view .email-body {
+  padding: 15px 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.email-view strong {
+  color: #555;
+  margin-right: 10px;
+}

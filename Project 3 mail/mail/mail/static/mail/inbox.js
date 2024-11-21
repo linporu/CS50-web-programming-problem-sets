@@ -14,6 +14,7 @@ function compose_email() {
 
   // Show compose view and hide other views
   document.querySelector('#emails-view').style.display = 'none';
+  document.querySelector('#email-view').style.display = 'none';
   document.querySelector('#compose-view').style.display = 'block';
 
   // Clear out composition fields
@@ -69,6 +70,7 @@ function load_mailbox(mailbox) {
   
   // Show the mailbox and hide other views
   document.querySelector('#emails-view').style.display = 'block';
+  document.querySelector('#email-view').style.display = 'none';
   document.querySelector('#compose-view').style.display = 'none';
 
   // Show the mailbox name
@@ -79,14 +81,14 @@ function load_mailbox(mailbox) {
   .then(response => response.json())
   .then(emails => {
     console.log(emails);
-    render_email_div(emails);
+    render_email_box(emails);
   })
   .catch(error => {
     console.error('Error:', error);
   });
 }
 
-function render_email_div(emails) {
+function render_email_box(emails) {
   // Get container element
   const container = document.querySelector('#emails-view');
   
@@ -94,13 +96,13 @@ function render_email_div(emails) {
   container.innerHTML = '';
   
   // Iterate through emails
-  emails.forEach(mail => {
+  emails.forEach(email => {
     const mail_div = document.createElement('div');
 
     mail_div.classList.add('email-item');
     
     // Change background color to grey after mail is read
-    if (!mail.read) {
+    if (!email.read) {
       mail_div.classList.add('email-unread');
     } else {
       mail_div.classList.add('email-read');
@@ -108,20 +110,87 @@ function render_email_div(emails) {
     
     mail_div.innerHTML = `
       <div class="email-sender">
-        ${mail.sender}
+        ${email.sender}
       </div>
       <div class="email-subject">
-        ${mail.subject}
+        ${email.subject}
       </div>
       <div class="email-timestamp">
-        ${mail.timestamp}
+        ${email.timestamp}
       </div>
     `;
     
     mail_div.addEventListener('click', function() {
-      console.log(`Mail #${mail.id} has been clicked!`);
+      console.log(`Mail #${email.id} has been clicked!`);
+      view_email(email);
     });
-    
     container.append(mail_div);
   });
+}
+
+
+function view_email(email){
+  // Show the email and hide other views
+  document.querySelector('#emails-view').style.display = 'none';
+  document.querySelector('#email-view').style.display = 'block';
+  document.querySelector('#compose-view').style.display = 'none';
+
+  // Get email
+  fetch(`emails/${email.id}`)
+  .then(response => response.json())
+  .then(email => {
+    console.log(email);
+    render_email_view(email);
+  })
+  .catch(error => {
+    console.error('Error:', error);
+  });
+
+  // Mark email as read
+  fetch(`/emails/${email.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      archived: true
+    })
+  })
+  .then(response => response.json())
+  .then(result => {
+      // Print result
+      console.log(result); 
+  })
+  .catch(error => {
+    console.error('Error:', error);
+  });
+}
+
+function render_email_view(email){
+  // Get container element
+  const container = document.querySelector('#email-view');
+  
+  // Clear container
+  container.innerHTML = '';
+  
+  // Create email view element
+  const email_view = document.createElement('div');
+  email_view.classList.add('email-view');
+
+  email_view.innerHTML = `
+    <div class="email-sender">
+      <strong>From:</strong> ${email.sender}
+    </div>
+    <div class="email-recipients">
+      <strong>To:</strong> ${email.recipients}
+    </div>
+    <div class="email-subject">
+      <strong>Subject:</strong> ${email.subject}
+    </div>
+    <div class="email-timestamp">
+      <strong>Timestamp:</strong> ${email.timestamp}
+    </div>
+    <div class="email-body"> 
+      ${email.body}
+    </div>
+  `;
+ 
+  container.append(email_view);
 }
