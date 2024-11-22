@@ -1,16 +1,16 @@
 document.addEventListener('DOMContentLoaded', function() {
 
   // Use buttons to toggle between views
-  document.querySelector('#inbox').addEventListener('click', () => load_mailbox('inbox'));
-  document.querySelector('#sent').addEventListener('click', () => load_mailbox('sent'));
-  document.querySelector('#archived').addEventListener('click', () => load_mailbox('archive'));
-  document.querySelector('#compose').addEventListener('click', compose_email);
+  document.querySelector('#inbox').addEventListener('click', () => loadMailbox('inbox'));
+  document.querySelector('#sent').addEventListener('click', () => loadMailbox('sent'));
+  document.querySelector('#archived').addEventListener('click', () => loadMailbox('archive'));
+  document.querySelector('#compose').addEventListener('click', composeEmail);
 
   // By default, load the inbox
-  load_mailbox('inbox');
+  loadMailbox('inbox');
 });
 
-function compose_email() {
+function composeEmail() {
 
   // Show compose view and hide other views
   document.querySelector('#emails-view').style.display = 'none';
@@ -58,7 +58,7 @@ function compose_email() {
         // Print result
         console.log(result); 
         //Load user's sent box
-        load_mailbox('sent');
+        loadMailbox('sent');
     })
     .catch(error => {
       console.error('Error:', error);
@@ -66,7 +66,7 @@ function compose_email() {
   }
 }
 
-function load_mailbox(mailbox) {
+function loadMailbox(mailbox) {
   
   // Show the mailbox and hide other views
   document.querySelector('#emails-view').style.display = 'block';
@@ -81,14 +81,14 @@ function load_mailbox(mailbox) {
   .then(response => response.json())
   .then(emails => {
     console.log(emails);
-    render_email_box(emails);
+    renderEmailBox(emails);
   })
   .catch(error => {
     console.error('Error:', error);
   });
 }
 
-function render_email_box(emails) {
+function renderEmailBox(emails) {
   // Get container element
   const container = document.querySelector('#emails-view');
   
@@ -97,18 +97,18 @@ function render_email_box(emails) {
   
   // Iterate through emails
   emails.forEach(email => {
-    const mail_div = document.createElement('div');
+    const mailDiv = document.createElement('div');
 
-    mail_div.classList.add('email-item');
+    mailDiv.classList.add('email-item');
     
     // Change background color to grey after mail is read
     if (!email.read) {
-      mail_div.classList.add('email-unread');
+      mailDiv.classList.add('email-unread');
     } else {
-      mail_div.classList.add('email-read');
+      mailDiv.classList.add('email-read');
     }
     
-    mail_div.innerHTML = `
+    mailDiv.innerHTML = `
       <div class="email-sender">
         ${email.sender}
       </div>
@@ -120,16 +120,16 @@ function render_email_box(emails) {
       </div>
     `;
     
-    mail_div.addEventListener('click', function() {
+    mailDiv.addEventListener('click', function() {
       console.log(`Mail #${email.id} has been clicked!`);
-      view_email(email);
+      viewEmail(email);
     });
-    container.append(mail_div);
+    container.append(mailDiv);
   });
 }
 
 
-function view_email(email){
+function viewEmail(email){
   // Show the email and hide other views
   document.querySelector('#emails-view').style.display = 'none';
   document.querySelector('#email-view').style.display = 'block';
@@ -140,7 +140,7 @@ function view_email(email){
   .then(response => response.json())
   .then(email => {
     console.log(email);
-    render_email_view(email);
+    renderEmailView(email);
   })
   .catch(error => {
     console.error('Error:', error);
@@ -162,7 +162,7 @@ function view_email(email){
   });
 }
 
-function render_email_view(email){
+function renderEmailView(email){
   // Get container element
   const container = document.querySelector('#email-view');
   
@@ -170,10 +170,10 @@ function render_email_view(email){
   container.innerHTML = '';
   
   // Create email view element
-  const email_view = document.createElement('div');
-  email_view.classList.add('email-view');
+  const emailView = document.createElement('div');
+  emailView.classList.add('email-view');
 
-  email_view.innerHTML = `
+  emailView.innerHTML = `
     <div class="email-sender">
       <strong>From:</strong> ${email.sender}
     </div>
@@ -191,7 +191,7 @@ function render_email_view(email){
     </div>
   `;
 
-  container.append(email_view);
+  container.append(emailView);
 
 
   // Only show archive button if the user is not the sender (not in sent mailbox)
@@ -216,7 +216,7 @@ function toggleArchive(email) {
   })
   .then(result => {
     console.log(result);
-    load_mailbox('inbox');
+    loadMailbox('inbox');
   })
   .catch(error => {
     console.error('Error:', error);
