@@ -208,13 +208,13 @@ function renderEmailView(email){
 
   // Reply button
   //Create reply button
-  const button = document.createElement('button');
-  button.classList.add('reply-button');
-  button.textContent = 'Reply';
-  container.append(button);
+  const replyButton = document.createElement('button');
+  replyButton.classList.add('reply-button');
+  replyButton.textContent = 'Reply';
+  container.append(replyButton);
 
-  // Click button to reply email
-  button.addEventListener('click', () => reply(email));
+  // Click reply button to reply email
+  replyButton.addEventListener('click', () => reply(email));
 }
 
 function toggleArchive(email) {
