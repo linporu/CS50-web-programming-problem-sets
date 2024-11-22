@@ -81,14 +81,14 @@ function loadMailbox(mailbox) {
   .then(response => response.json())
   .then(emails => {
     console.log(emails);
-    renderEmailBox(emails);
+    renderEmailBox(emails, mailbox);
   })
   .catch(error => {
     console.error('Error:', error);
   });
 }
 
-function renderEmailBox(emails) {
+function renderEmailBox(emails, mailbox) {
   // Get container element
   const container = document.querySelector('#emails-view');
   
@@ -122,14 +122,14 @@ function renderEmailBox(emails) {
     
     mailDiv.addEventListener('click', function() {
       console.log(`Mail #${email.id} has been clicked!`);
-      viewEmail(email);
+      viewEmail(email, mailbox);
     });
     container.append(mailDiv);
   });
 }
 
 
-function viewEmail(email){
+function viewEmail(email, mailbox){
   // Show the email and hide other views
   document.querySelector('#emails-view').style.display = 'none';
   document.querySelector('#email-view').style.display = 'block';
@@ -140,7 +140,7 @@ function viewEmail(email){
   .then(response => response.json())
   .then(email => {
     console.log(email);
-    renderEmailView(email);
+    renderEmailView(email, mailbox);
   })
   .catch(error => {
     console.error('Error:', error);
@@ -162,7 +162,7 @@ function viewEmail(email){
   });
 }
 
-function renderEmailView(email){
+function renderEmailView(email, mailbox){
   // Get container element
   const container = document.querySelector('#email-view');
   
@@ -195,15 +195,15 @@ function renderEmailView(email){
 
   // Archive and unarchive
   // Only show archive button if the user is not the sender (not in sent mailbox)
-  if (email.sender !== document.querySelector('#user-email').innerHTML) {
+  if (mailbox !== 'sent') {
     //Create archive button
-    const button = document.createElement('button');
-    button.classList.add('archive-button');
-    button.textContent = email.archived ? 'Unarchive' : 'Archive';
-    container.append(button);
+    const archiveButton = document.createElement('button');
+    archiveButton.classList.add('archive-button');
+    archiveButton.textContent = email.archived ? 'Unarchive' : 'Archive';
+    container.append(archiveButton);
 
     // Click button to archive email
-    button.addEventListener('click', () => toggleArchive(email));
+    archiveButton.addEventListener('click', () => toggleArchive(email));
   }
 
   // Reply button
