@@ -193,7 +193,7 @@ function renderEmailView(email){
 
   container.append(emailView);
 
-
+  // Archive and unarchive
   // Only show archive button if the user is not the sender (not in sent mailbox)
   if (email.sender !== document.querySelector('#user-email').innerHTML) {
     //Create archive button
@@ -205,6 +205,16 @@ function renderEmailView(email){
     // Click button to archive email
     button.addEventListener('click', () => toggleArchive(email));
   }
+
+  // Reply button
+  //Create reply button
+  const button = document.createElement('button');
+  button.classList.add('reply-button');
+  button.textContent = 'Reply';
+  container.append(button);
+
+  // Click button to reply email
+  button.addEventListener('click', () => reply(email));
 }
 
 function toggleArchive(email) {
@@ -221,4 +231,18 @@ function toggleArchive(email) {
   .catch(error => {
     console.error('Error:', error);
   });
+}
+
+
+function reply(email){
+  composeEmail();
+
+  // Prefill the composition form
+  document.querySelector('#compose-recipients').value = `${email.sender}`;
+  document.querySelector('#compose-subject').value = 
+    email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`;
+  document.querySelector('#compose-body').value = `
+    On ${email.timestamp} ${email.sender} wrote: 
+    ${email.body}
+  `;
 }
