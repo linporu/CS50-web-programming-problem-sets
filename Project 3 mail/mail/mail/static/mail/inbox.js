@@ -135,7 +135,7 @@ function view_email(email){
   document.querySelector('#email-view').style.display = 'block';
   document.querySelector('#compose-view').style.display = 'none';
 
-  // Get email
+  // Get and render email
   fetch(`emails/${email.id}`)
   .then(response => response.json())
   .then(email => {
@@ -153,7 +153,6 @@ function view_email(email){
       read: true
     })
   })
-  .then(response => response.json())
   .then(result => {
       // Print result
       console.log(result); 
@@ -191,6 +190,35 @@ function render_email_view(email){
       ${email.body}
     </div>
   `;
- 
+
   container.append(email_view);
+
+
+  // Only show archive button if the user is not the sender (not in sent mailbox)
+  if (email.sender !== document.querySelector('#user-email').innerHTML) {
+    //Create archive button
+    const button = document.createElement('button');
+    button.classList.add('archive-button');
+    button.textContent = email.archived ? 'Unarchive' : 'Archive';
+    container.append(button);
+
+    // Click button to archive email
+    button.addEventListener('click', () => toggleArchive(email));
+  }
+}
+
+function toggleArchive(email) {
+  fetch(`/emails/${email.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      archived: !email.archived  // Toggle the archived status
+    })
+  })
+  .then(result => {
+    console.log(result);
+    load_mailbox('inbox');
+  })
+  .catch(error => {
+    console.error('Error:', error);
+  });
 }
