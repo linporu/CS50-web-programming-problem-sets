@@ -150,7 +150,7 @@ function view_email(email){
   fetch(`/emails/${email.id}`, {
     method: 'PUT',
     body: JSON.stringify({
-      archived: true
+      read: true
     })
   })
   .then(response => response.json())
