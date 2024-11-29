@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
   loadMailbox('inbox');
 });
 
-function composeEmail() {
+async function composeEmail() {
 
   // Show compose view and hide other views
   document.querySelector('#emails-view').style.display = 'none';
@@ -23,7 +23,7 @@ function composeEmail() {
   document.querySelector('#compose-body').value = '';
 
   // Sent email
-  document.querySelector('#compose-form').onsubmit = function(event){
+  document.querySelector('#compose-form').onsubmit = async function(event){
     event.preventDefault();
 
     // Check input form
@@ -45,28 +45,27 @@ function composeEmail() {
     }
 
     // POST request
-    fetch('/emails', {
-      method: 'POST',
-      body: JSON.stringify({
+    try {
+      await apiRequest(API.EMAILS, {
+        method: 'POST',
+        body: JSON.stringify({
           recipients: document.querySelector('#compose-recipients').value,
           subject: document.querySelector('#compose-subject').value,
           body: document.querySelector('#compose-body').value
-      })
-    })
-    .then(response => response.json())
-    .then(result => {
-        // Print result
-        console.log(result); 
-        //Load user's sent box
-        loadMailbox('sent');
-    })
-    .catch(error => {
-      console.error('Error:', error);
-    });
+        })
+      });
+    } catch {
+      console.error('Error sending email', error);
+      alert(error.message);
+    }
+
+    //Load user's sent box
+    loadMailbox('sent');
   }
 }
 
-function loadMailbox(mailbox) {
+
+async function loadMailbox(mailbox) {
   
   // Show the mailbox and hide other views
   document.querySelector('#emails-view').style.display = 'block';
@@ -77,16 +76,15 @@ function loadMailbox(mailbox) {
   document.querySelector('#emails-view').innerHTML = `<h3>${mailbox.charAt(0).toUpperCase() + mailbox.slice(1)}</h3>`;
 
   // Get emails
-  fetch(`emails/${mailbox}`)
-  .then(response => response.json())
-  .then(emails => {
-    console.log(emails);
+  try {
+    emails = await apiRequest(API.MAILBOX(mailbox));
     renderEmailBox(emails, mailbox);
-  })
-  .catch(error => {
-    console.error('Error:', error);
-  });
+  } catch {
+    console.error('Error getting emails', error);
+    alert(error.message);
+  }
 }
+
 
 function renderEmailBox(emails, mailbox) {
   // Get container element
@@ -129,37 +127,33 @@ function renderEmailBox(emails, mailbox) {
 }
 
 
-function viewEmail(email, mailbox){
+async function viewEmail(email, mailbox){
   // Show the email and hide other views
   document.querySelector('#emails-view').style.display = 'none';
   document.querySelector('#email-view').style.display = 'block';
   document.querySelector('#compose-view').style.display = 'none';
 
   // Get and render email
-  fetch(`emails/${email.id}`)
-  .then(response => response.json())
-  .then(email => {
-    console.log(email);
+  try {
+    await apiRequest(API.EMAIL(email.id));
     renderEmailView(email, mailbox);
-  })
-  .catch(error => {
-    console.error('Error:', error);
-  });
+  } catch {
+    console.error('Error getting email', error);
+    alert(error.message);
+  }
 
   // Mark email as read
-  fetch(`/emails/${email.id}`, {
-    method: 'PUT',
-    body: JSON.stringify({
-      read: true
-    })
-  })
-  .then(result => {
-      // Print result
-      console.log(result); 
-  })
-  .catch(error => {
-    console.error('Error:', error);
-  });
+  try {
+    await apiRequest(API.EMAIL(email.id), {
+      method: 'PUT',
+      body: JSON.stringify({
+        read: true
+      })
+    });
+  } catch {
+    console.error('Error getting email', error);
+    alert(error.message);
+  }
 }
 
 function renderEmailView(email, mailbox){
@@ -217,20 +211,19 @@ function renderEmailView(email, mailbox){
   replyButton.addEventListener('click', () => reply(email));
 }
 
-function toggleArchive(email) {
-  fetch(`/emails/${email.id}`, {
-    method: 'PUT',
-    body: JSON.stringify({
-      archived: !email.archived  // Toggle the archived status
-    })
-  })
-  .then(result => {
-    console.log(result);
+async function toggleArchive(email) {
+  try {
+    await apiRequest(API.EMAIL(email.id), {
+      method: 'PUT',
+      body: JSON.stringify({
+        archived: !email.archived  // Toggle the archived status
+      })
+    });
     loadMailbox('inbox');
-  })
-  .catch(error => {
-    console.error('Error:', error);
-  });
+  } catch {
+    console.error('Error getting email', error);
+    alert(error.message);
+  }
 }
 
 
@@ -245,4 +238,54 @@ function reply(email){
     On ${email.timestamp} ${email.sender} wrote: 
     ${email.body}
   `;
+}
+
+
+// Define API endpoints
+const API = {
+  EMAILS: '/emails',
+  EMAIL: (id) => `/emails/${id}`,
+  MAILBOX: (mailbox) => `/emails/${mailbox}`,
+}
+
+
+async function apiRequest(url, options = {}) {
+  // 1. Set default options
+  const defaultOptions = {
+    headers: {
+      'Content-Type': 'application/json',  // Set data format to JSON
+    },
+    credentials: 'same-origin',  // Set cookie handling method
+  };
+
+  try {
+    // 2. Send request and wait for response
+    const response = await fetch(url, { 
+      ...defaultOptions,  // Spread default options
+      ...options         // Spread user provided options (will override defaults)
+    });
+    
+    // 3. Check HTTP status
+    if (!response.ok) {
+      // If status code is not 2xx, throw error
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    // 4. Parse JSON response
+    const data = await response.json();
+    
+    // 5. Check business logic errors
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    // 6. Return successful data
+    return data;
+
+  } catch (error) {
+    // 7. Error handling
+    console.error('API Request failed:', error);
+    alert(error.message);
+    throw error;  // Re-throw error up the chain
+  }
 }
