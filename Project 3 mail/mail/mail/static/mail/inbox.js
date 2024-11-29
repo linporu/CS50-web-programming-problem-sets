@@ -197,7 +197,10 @@ function renderEmailView(email, mailbox){
     container.append(archiveButton);
 
     // Click button to archive email
-    archiveButton.addEventListener('click', () => toggleArchive(email));
+    archiveButton.addEventListener('click', async () => {
+      await toggleArchive(email);
+      loadMailbox('inbox');
+    });
   }
 
   // Reply button
@@ -219,8 +222,7 @@ async function toggleArchive(email) {
         archived: !email.archived  // Toggle the archived status
       })
     });
-    // TODO: put this after reply(email) in reply button
-    loadMailbox('inbox');
+    
   } catch (error) {
     console.error('Error getting email', error);
     alert(error.message);
