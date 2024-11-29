@@ -54,7 +54,7 @@ async function composeEmail() {
           body: document.querySelector('#compose-body').value
         })
       });
-    } catch {
+    } catch (error) {
       console.error('Error sending email', error);
       alert(error.message);
     }
@@ -79,7 +79,7 @@ async function loadMailbox(mailbox) {
   try {
     emails = await apiRequest(API.MAILBOX(mailbox));
     renderEmailBox(emails, mailbox);
-  } catch {
+  } catch (error) {
     console.error('Error getting emails', error);
     alert(error.message);
   }
@@ -137,7 +137,7 @@ async function viewEmail(email, mailbox){
   try {
     await apiRequest(API.EMAIL(email.id));
     renderEmailView(email, mailbox);
-  } catch {
+  } catch (error) {
     console.error('Error getting email', error);
     alert(error.message);
   }
@@ -150,8 +150,8 @@ async function viewEmail(email, mailbox){
         read: true
       })
     });
-  } catch {
-    console.error('Error getting email', error);
+  } catch (error) {
+    console.error('Error marking email read', error);
     alert(error.message);
   }
 }
@@ -219,8 +219,9 @@ async function toggleArchive(email) {
         archived: !email.archived  // Toggle the archived status
       })
     });
+    // TODO: put this after reply(email) in reply button
     loadMailbox('inbox');
-  } catch {
+  } catch (error) {
     console.error('Error getting email', error);
     alert(error.message);
   }
@@ -271,19 +272,22 @@ async function apiRequest(url, options = {}) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    // 4. Parse JSON response
-    const data = await response.json();
-    
-    // 5. Check business logic errors
-    if (data.error) {
-      throw new Error(data.error);
+    if (response.status === 204) {
+      return null;
     }
 
-    // 6. Return successful data
-    return data;
-
+    // 4. Parse JSON response
+    try {
+      const data = await response.json();
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      return data;
+    } catch (jsonError) {
+      throw new Error('Invalid response format from server');
+    }
   } catch (error) {
-    // 7. Error handling
+    // 5. Error handling
     console.error('API Request failed:', error);
     alert(error.message);
     throw error;  // Re-throw error up the chain
