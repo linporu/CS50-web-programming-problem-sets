@@ -1,14 +1,116 @@
-document.addEventListener('DOMContentLoaded', function() {
+function App() {
+  const [currentMailbox, setCurrentMailbox] = React.useState('inbox');
+  const [emails, setEmails] = React.useState([]);
+  const [selectedEmail, setSelectedEmail] = React.useState(null);
 
-  // Use buttons to toggle between views
-  document.querySelector('#inbox').addEventListener('click', () => loadMailbox('inbox'));
-  document.querySelector('#sent').addEventListener('click', () => loadMailbox('sent'));
-  document.querySelector('#archived').addEventListener('click', () => loadMailbox('archive'));
-  document.querySelector('#compose').addEventListener('click', composeEmail);
+  // 處理信箱切換
+  const handleMailboxClick = async (mailbox) => {
+    if (mailbox === 'compose') {
+      composeEmail();
+    } else {
+      try {
+        const emails = await apiRequest(API.MAILBOX(mailbox));
+        setEmails(emails);
+        setCurrentMailbox(mailbox);
+        setSelectedEmail(null);  // 清除選中的郵件
+        
+        // 更新畫面顯示
+        document.querySelector('#emails-view').style.display = 'block';
+        document.querySelector('#email-view').style.display = 'none';
+        document.querySelector('#compose-view').style.display = 'none';
+      } catch (error) {
+        console.error('Error getting emails', error);
+      }
+    }
+  };
 
-  // By default, load the inbox
-  loadMailbox('inbox');
-});
+  // 處理郵件點擊
+  const handleEmailClick = async (email) => {
+    try {
+      setSelectedEmail(email);
+      // 暫時保留原本的 viewEmail 函數調用
+      await viewEmail(email, currentMailbox);
+    } catch (error) {
+      console.error('Error viewing email', error);
+    }
+  };
+
+  // 當元件載入時執行
+  React.useEffect(() => {
+    handleMailboxClick('inbox');
+  }, []);
+
+  return (
+    <div>
+      <div className="sidebar">
+        <button 
+          className="btn btn-sm btn-outline-primary" 
+          onClick={() => handleMailboxClick('inbox')}
+        >
+          Inbox
+        </button>
+        <button 
+          className="btn btn-sm btn-outline-primary" 
+          onClick={() => handleMailboxClick('compose')}
+        >
+          Compose
+        </button>
+        <button 
+          className="btn btn-sm btn-outline-primary" 
+          onClick={() => handleMailboxClick('sent')}
+        >
+          Sent
+        </button>
+        <button 
+          className="btn btn-sm btn-outline-primary" 
+          onClick={() => handleMailboxClick('archive')}
+        >
+          Archived
+        </button>
+        <hr />
+      </div>
+      
+      {currentMailbox === 'compose' && (
+        <div id="compose-view">
+          {/* 撰寫郵件表單 */}
+        </div>
+      )}
+      
+      {currentMailbox !== 'compose' && (
+        <div id="emails-view">
+          <h3>{currentMailbox.charAt(0).toUpperCase() + currentMailbox.slice(1)}</h3>
+          <EmailList emails={emails} onEmailClick={handleEmailClick} />
+        </div>
+      )}
+      
+      <div id="email-view"></div>
+    </div>
+  );
+}
+
+function EmailList({ emails, onEmailClick }) {
+  return (
+    <div>
+      {emails.map(email => (
+        <div 
+          key={email.id} 
+          className={`email-item ${email.read ? 'email-read' : 'email-unread'}`}
+          onClick={() => onEmailClick(email)}
+        >
+          <div className="email-sender">{email.sender}</div>
+          <div className="email-subject">{email.subject}</div>
+          <div className="email-timestamp">{email.timestamp}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// 渲染 App
+ReactDOM.render(<App />, document.getElementById('app'));
+
+
+
 
 async function composeEmail() {
 
@@ -294,4 +396,22 @@ async function apiRequest(url, options = {}) {
     alert(error.message);
     throw error;  // Re-throw error up the chain
   }
+}
+
+function EmailList({ emails, onEmailClick }) {
+  return (
+    <div>
+      {emails.map(email => (
+        <div 
+          key={email.id} 
+          className={`email-item ${email.read ? 'email-read' : 'email-unread'}`}
+          onClick={() => onEmailClick(email)}
+        >
+          <div className="email-sender">{email.sender}</div>
+          <div className="email-subject">{email.subject}</div>
+          <div className="email-timestamp">{email.timestamp}</div>
+        </div>
+      ))}
+    </div>
+  );
 }

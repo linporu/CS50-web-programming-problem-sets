@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block body %}
+    <!--
     <h2 id="user-email">{{ request.user.email }}</h2>
 
     <button class="btn btn-sm btn-outline-primary" id="inbox">Inbox</button>
@@ -33,8 +34,11 @@
             <input type="submit" class="btn btn-primary"/>
         </form>
     </div>
+    -->
+    <h2 id="user-email">{{ request.user.email }}</h2>
+    <div id="app"></div>
 {% endblock %}
 
 {% block script %}
-    <script src="{% static 'mail/inbox.js' %}"></script>
+    <script type="text/babel" src="{% static 'mail/inbox.js' %}"></script>
 {% endblock %}
