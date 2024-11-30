@@ -102,6 +102,11 @@ function App() {
     handleMailboxClick('sent');  // 發送完成後切換到寄件匣
   };
 
+  // 新增處理登出的函數
+  const handleLogout = () => {
+    window.location.href = '/logout';  // 假設 Django 的登出 URL 是 /logout
+  };
+
   // 使用 useEffect 在組件首次渲染時載入收件匣
   React.useEffect(() => {
     handleMailboxClick('inbox');
@@ -135,6 +140,13 @@ function App() {
           onClick={() => handleMailboxClick('archive')}
         >
           Archived
+        </button>
+        {/* 新增登出按鈕 */}
+        <button 
+          className="btn btn-sm btn-outline-danger" 
+          onClick={handleLogout}
+        >
+          Logout
         </button>
       </div>
       
