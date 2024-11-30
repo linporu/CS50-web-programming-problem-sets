@@ -56,7 +56,7 @@ function App() {
   const [currentMailbox, setCurrentMailbox] = React.useState('inbox');  // 當前選擇的信箱
   const [emails, setEmails] = React.useState([]);                       // 信箱中的郵件列表
   const [selectedEmail, setSelectedEmail] = React.useState(null);       // 當前選中的郵件
-  const [view, setView] = React.useState('inbox');                      // 當前視圖('inbox', 'compose', 'email')
+  const [view, setView] = React.useState('list');                      // 當前視圖('list', 'compose', 'email')
   const [replyData, setReplyData] = React.useState(null);              // 回覆郵件時的預設資料
 
   // 處理信箱切換的函數
@@ -70,7 +70,7 @@ function App() {
         setEmails(emails);
         setCurrentMailbox(mailbox);
         setSelectedEmail(null);
-        setView('inbox');
+        setView('list');
       } catch (error) {
         console.error('Error getting emails', error);
       }
@@ -148,7 +148,7 @@ function App() {
       )}
       
       {/* 信箱視圖 */}
-      {view === 'inbox' && (
+      {view === 'list' && (
         <div id="emails-view">
           <h3>{currentMailbox.charAt(0).toUpperCase() + currentMailbox.slice(1)}</h3>
           <EmailList emails={emails} onEmailClick={handleEmailClick} />
@@ -160,7 +160,7 @@ function App() {
         <EmailView 
           email={selectedEmail} 
           mailbox={currentMailbox}
-          onBack={() => setView('inbox')}
+          onBack={() => setView('list')}
           setView={setView}
           setReplyData={setReplyData}
           onArchive={() => handleMailboxClick('inbox')}
