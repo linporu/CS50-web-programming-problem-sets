@@ -2,22 +2,20 @@ function App() {
   const [currentMailbox, setCurrentMailbox] = React.useState('inbox');
   const [emails, setEmails] = React.useState([]);
   const [selectedEmail, setSelectedEmail] = React.useState(null);
+  const [view, setView] = React.useState('inbox'); // 'inbox', 'compose', 'email'
 
   // 處理信箱切換
   const handleMailboxClick = async (mailbox) => {
     if (mailbox === 'compose') {
+      setView('compose');
       composeEmail();
     } else {
       try {
         const emails = await apiRequest(API.MAILBOX(mailbox));
         setEmails(emails);
         setCurrentMailbox(mailbox);
-        setSelectedEmail(null);  // 清除選中的郵件
-        
-        // 更新畫面顯示
-        document.querySelector('#emails-view').style.display = 'block';
-        document.querySelector('#email-view').style.display = 'none';
-        document.querySelector('#compose-view').style.display = 'none';
+        setSelectedEmail(null);
+        setView('inbox');
       } catch (error) {
         console.error('Error getting emails', error);
       }
@@ -27,9 +25,18 @@ function App() {
   // 處理郵件點擊
   const handleEmailClick = async (email) => {
     try {
-      setSelectedEmail(email);
-      // 暫時保留原本的 viewEmail 函數調用
-      await viewEmail(email, currentMailbox);
+      // 獲取完整的郵件內容
+      const fullEmail = await apiRequest(API.EMAIL(email.id));
+      setSelectedEmail(fullEmail);
+      setView('email');
+
+      // 標記為已讀
+      await apiRequest(API.EMAIL(email.id), {
+        method: 'PUT',
+        body: JSON.stringify({
+          read: true
+        })
+      });
     } catch (error) {
       console.error('Error viewing email', error);
     }
@@ -70,20 +77,28 @@ function App() {
         <hr />
       </div>
       
-      {currentMailbox === 'compose' && (
+      {view === 'compose' && (
         <div id="compose-view">
           {/* 撰寫郵件表單 */}
         </div>
       )}
       
-      {currentMailbox !== 'compose' && (
+      {view === 'inbox' && (
         <div id="emails-view">
           <h3>{currentMailbox.charAt(0).toUpperCase() + currentMailbox.slice(1)}</h3>
           <EmailList emails={emails} onEmailClick={handleEmailClick} />
         </div>
       )}
       
-      <div id="email-view"></div>
+      {view === 'email' && selectedEmail && (
+        <div id="email-view">
+          <EmailView 
+            email={selectedEmail} 
+            mailbox={currentMailbox}
+            onBack={() => setView('inbox')}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -102,6 +117,49 @@ function EmailList({ emails, onEmailClick }) {
           <div className="email-timestamp">{email.timestamp}</div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function EmailView({ email, mailbox, onBack }) {
+  const handleArchive = async () => {
+    try {
+      await apiRequest(API.EMAIL(email.id), {
+        method: 'PUT',
+        body: JSON.stringify({
+          archived: !email.archived
+        })
+      });
+      onBack();
+    } catch (error) {
+      console.error('Error archiving email', error);
+    }
+  };
+
+  return (
+    <div className="email-view">
+      <div className="email-sender">
+        <strong>From:</strong> {email.sender}
+      </div>
+      <div className="email-recipients">
+        <strong>To:</strong> {email.recipients.join(', ')}
+      </div>
+      <div className="email-subject">
+        <strong>Subject:</strong> {email.subject}
+      </div>
+      <div className="email-timestamp">
+        <strong>Timestamp:</strong> {email.timestamp}
+      </div>
+      <div className="email-body">
+        {email.body}
+      </div>
+      <button onClick={onBack}>Back</button>
+      {mailbox !== 'sent' && (
+        <button onClick={handleArchive}>
+          {email.archived ? 'Unarchive' : 'Archive'}
+        </button>
+      )}
+      <button onClick={() => reply(email)}>Reply</button>
     </div>
   );
 }
