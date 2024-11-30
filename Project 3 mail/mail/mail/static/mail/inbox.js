@@ -3,6 +3,7 @@ function App() {
   const [emails, setEmails] = React.useState([]);
   const [selectedEmail, setSelectedEmail] = React.useState(null);
   const [view, setView] = React.useState('inbox'); // 'inbox', 'compose', 'email'
+  const [replyData, setReplyData] = React.useState(null);
 
   // 處理信箱切換
   const handleMailboxClick = async (mailbox) => {
@@ -78,7 +79,10 @@ function App() {
       </div>
       
       {view === 'compose' && (
-        <ComposeEmail onEmailSent={handleEmailSent} />
+        <ComposeEmail 
+          onEmailSent={handleEmailSent}
+          initialData={replyData}
+        />
       )}
       
       {view === 'inbox' && (
@@ -93,16 +97,18 @@ function App() {
           email={selectedEmail} 
           mailbox={currentMailbox}
           onBack={() => setView('inbox')}
+          setView={setView}
+          setReplyData={setReplyData}
         />
       )}
     </div>
   );
 }
 
-function ComposeEmail({ onEmailSent }) {
-  const [recipients, setRecipients] = React.useState('');
-  const [subject, setSubject] = React.useState('');
-  const [body, setBody] = React.useState('');
+function ComposeEmail({ onEmailSent, initialData }) {
+  const [recipients, setRecipients] = React.useState(initialData?.recipients || '');
+  const [subject, setSubject] = React.useState(initialData?.subject || '');
+  const [body, setBody] = React.useState(initialData?.body || '');
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -191,7 +197,7 @@ function EmailList({ emails, onEmailClick }) {
   );
 }
 
-function EmailView({ email, mailbox, onBack }) {
+function EmailView({ email, mailbox, onBack, setView, setReplyData }) {
   const handleArchive = async () => {
     try {
       await apiRequest(API.EMAIL(email.id), {
@@ -204,6 +210,26 @@ function EmailView({ email, mailbox, onBack }) {
     } catch (error) {
       console.error('Error archiving email', error);
     }
+  };
+
+  const handleReply = () => {
+    // 設定回覆郵件的預設值
+    const replySubject = email.subject.startsWith('Re: ') 
+      ? email.subject 
+      : `Re: ${email.subject}`;
+      
+    const replyBody = `
+On ${email.timestamp} ${email.sender} wrote:
+${email.body}
+    `;
+
+    // 更新 ComposeEmail 的狀態
+    setView('compose');
+    setReplyData({
+      recipients: email.sender,
+      subject: replySubject,
+      body: replyBody
+    });
   };
 
   return (
@@ -229,7 +255,7 @@ function EmailView({ email, mailbox, onBack }) {
           {email.archived ? 'Unarchive' : 'Archive'}
         </button>
       )}
-      <button onClick={() => reply(email)}>Reply</button>
+      <button onClick={handleReply}>Reply</button>
     </div>
   );
 }
