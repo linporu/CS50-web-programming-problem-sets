@@ -99,6 +99,7 @@ function App() {
           onBack={() => setView('inbox')}
           setView={setView}
           setReplyData={setReplyData}
+          onArchive={() => handleMailboxClick('inbox')}
         />
       )}
     </div>
@@ -197,7 +198,7 @@ function EmailList({ emails, onEmailClick }) {
   );
 }
 
-function EmailView({ email, mailbox, onBack, setView, setReplyData }) {
+function EmailView({ email, mailbox, onBack, setView, setReplyData, onArchive }) {
   const handleArchive = async () => {
     try {
       await apiRequest(API.EMAIL(email.id), {
@@ -207,6 +208,7 @@ function EmailView({ email, mailbox, onBack, setView, setReplyData }) {
         })
       });
       onBack();
+      onArchive();
     } catch (error) {
       console.error('Error archiving email', error);
     }
