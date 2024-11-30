@@ -8,7 +8,6 @@ function App() {
   const handleMailboxClick = async (mailbox) => {
     if (mailbox === 'compose') {
       setView('compose');
-      composeEmail();
     } else {
       try {
         const emails = await apiRequest(API.MAILBOX(mailbox));
@@ -25,12 +24,10 @@ function App() {
   // 處理郵件點擊
   const handleEmailClick = async (email) => {
     try {
-      // 獲取完整的郵件內容
       const fullEmail = await apiRequest(API.EMAIL(email.id));
       setSelectedEmail(fullEmail);
       setView('email');
 
-      // 標記為已讀
       await apiRequest(API.EMAIL(email.id), {
         method: 'PUT',
         body: JSON.stringify({
@@ -42,7 +39,11 @@ function App() {
     }
   };
 
-  // 當元件載入時執行
+  // 處理郵件發送完成
+  const handleEmailSent = () => {
+    handleMailboxClick('sent');
+  };
+
   React.useEffect(() => {
     handleMailboxClick('inbox');
   }, []);
@@ -74,13 +75,10 @@ function App() {
         >
           Archived
         </button>
-        <hr />
       </div>
       
       {view === 'compose' && (
-        <div id="compose-view">
-          {/* 撰寫郵件表單 */}
-        </div>
+        <ComposeEmail onEmailSent={handleEmailSent} />
       )}
       
       {view === 'inbox' && (
@@ -91,14 +89,86 @@ function App() {
       )}
       
       {view === 'email' && selectedEmail && (
-        <div id="email-view">
-          <EmailView 
-            email={selectedEmail} 
-            mailbox={currentMailbox}
-            onBack={() => setView('inbox')}
+        <EmailView 
+          email={selectedEmail} 
+          mailbox={currentMailbox}
+          onBack={() => setView('inbox')}
+        />
+      )}
+    </div>
+  );
+}
+
+function ComposeEmail({ onEmailSent }) {
+  const [recipients, setRecipients] = React.useState('');
+  const [subject, setSubject] = React.useState('');
+  const [body, setBody] = React.useState('');
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    // 驗證表單
+    if (!recipients.trim()) {
+      alert('Recipients field is required.');
+      return;
+    }
+    if (!subject.trim()) {
+      alert('Subject field is required.');
+      return;
+    }
+    if (!body.trim()) {
+      alert('Body field is required.');
+      return;
+    }
+
+    try {
+      await apiRequest(API.EMAILS, {
+        method: 'POST',
+        body: JSON.stringify({
+          recipients: recipients,
+          subject: subject,
+          body: body
+        })
+      });
+      onEmailSent();
+    } catch (error) {
+      console.error('Error sending email', error);
+      alert(error.message);
+    }
+  };
+
+  return (
+    <div id="compose-view">
+      <h3>New Email</h3>
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <input 
+            type="text" 
+            className="form-control" 
+            placeholder="Recipients" 
+            value={recipients}
+            onChange={(e) => setRecipients(e.target.value)}
           />
         </div>
-      )}
+        <div className="form-group">
+          <input 
+            type="text" 
+            className="form-control" 
+            placeholder="Subject"
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+          />
+        </div>
+        <div className="form-group">
+          <textarea 
+            className="form-control" 
+            placeholder="Body"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+          />
+        </div>
+        <button type="submit" className="btn btn-primary">Send</button>
+      </form>
     </div>
   );
 }
