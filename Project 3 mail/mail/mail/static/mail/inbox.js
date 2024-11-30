@@ -1,38 +1,38 @@
-// 定義 API 端點，用於與後端溝通
+// Define API endpoints for backend communication
 const API = {
-  EMAILS: '/emails',                           // 用於發送新郵件的端點
-  EMAIL: (id) => `/emails/${id}`,             // 用於獲取/修改特定郵件的端點
-  MAILBOX: (mailbox) => `/emails/${mailbox}`,  // 用於獲取特定信箱(收件匣/寄件匣等)的端點
+  EMAILS: '/emails',                           // Endpoint for sending new emails
+  EMAIL: (id) => `/emails/${id}`,             // Endpoint for getting/modifying specific emails
+  MAILBOX: (mailbox) => `/emails/${mailbox}`,  // Endpoint for getting specific mailbox (inbox/sent etc)
 }
 
-// 封裝所有 API 請求的通用函數
+// Wrapper function for all API requests
 async function apiRequest(url, options = {}) {
-  // 1. 設定預設選項
+  // 1. Set default options
   const defaultOptions = {
     headers: {
-      'Content-Type': 'application/json',  // 設定資料格式為 JSON
+      'Content-Type': 'application/json',  // Set data format to JSON
     },
-    credentials: 'same-origin',  // 設定使用同源 cookie
+    credentials: 'same-origin',  // Set to use same-origin cookies
   };
 
   try {
-    // 2. 發送請求並等待回應
+    // 2. Send request and await response
     const response = await fetch(url, { 
-      ...defaultOptions,  // 展開預設選項
-      ...options         // 展開使用者提供的選項(會覆蓋預設值)
+      ...defaultOptions,  // Spread default options
+      ...options         // Spread user options (will override defaults)
     });
     
-    // 3. 檢查 HTTP 狀態
+    // 3. Check HTTP status
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    // 如果狀態碼是 204 (No Content)，直接返回 null
+    // If status code is 204 (No Content), return null directly
     if (response.status === 204) {
       return null;
     }
 
-    // 4. 解析 JSON 回應
+    // 4. Parse JSON response
     try {
       const data = await response.json();
       if (data.error) {
@@ -43,29 +43,29 @@ async function apiRequest(url, options = {}) {
       throw new Error('Invalid response format from server');
     }
   } catch (error) {
-    // 5. 錯誤處理
+    // 5. Error handling
     console.error('API Request failed:', error);
     alert(error.message);
-    throw error;  // 將錯誤往上拋出
+    throw error;  // Rethrow error
   }
 }
 
-// 主要的 App 組件
+// Main App component
 function App() {
-  // 使用 React.useState 管理狀態
-  const [currentMailbox, setCurrentMailbox] = React.useState('inbox');  // 當前選擇的信箱
-  const [emails, setEmails] = React.useState([]);                       // 信箱中的郵件列表
-  const [selectedEmail, setSelectedEmail] = React.useState(null);       // 當前選中的郵件
-  const [view, setView] = React.useState('list');                      // 當前視圖('list', 'compose', 'email')
-  const [replyData, setReplyData] = React.useState(null);              // 回覆郵件時的預設資料
+  // Use React.useState to manage state
+  const [currentMailbox, setCurrentMailbox] = React.useState('inbox');  // Currently selected mailbox
+  const [emails, setEmails] = React.useState([]);                       // List of emails in mailbox
+  const [selectedEmail, setSelectedEmail] = React.useState(null);       // Currently selected email
+  const [view, setView] = React.useState('list');                      // Current view ('list', 'compose', 'email')
+  const [replyData, setReplyData] = React.useState(null);              // Default data when replying to email
 
-  // 處理信箱切換的函數
+  // Handle mailbox switching
   const handleMailboxClick = async (mailbox) => {
     if (mailbox === 'compose') {
-      setView('compose');  // 如果點擊撰寫郵件，切換到撰寫視圖
+      setView('compose');  // If clicking compose, switch to compose view
     } else {
       try {
-        // 獲取該信箱的所有郵件
+        // Get all emails for the mailbox
         const emails = await apiRequest(API.MAILBOX(mailbox));
         setEmails(emails);
         setCurrentMailbox(mailbox);
@@ -77,15 +77,15 @@ function App() {
     }
   };
 
-  // 處理點擊郵件的函數
+  // Handle email click
   const handleEmailClick = async (email) => {
     try {
-      // 獲取完整的郵件內容
+      // Get full email content
       const fullEmail = await apiRequest(API.EMAIL(email.id));
       setSelectedEmail(fullEmail);
       setView('email');
 
-      // 將郵件標記為已讀
+      // Mark email as read
       await apiRequest(API.EMAIL(email.id), {
         method: 'PUT',
         body: JSON.stringify({
@@ -97,25 +97,25 @@ function App() {
     }
   };
 
-  // 處理郵件發送完成的函數
+  // Handle email sent completion
   const handleEmailSent = () => {
-    handleMailboxClick('sent');  // 發送完成後切換到寄件匣
+    handleMailboxClick('sent');  // Switch to sent box after sending
   };
 
-  // 新增處理登出的函數
+  // Handle logout
   const handleLogout = () => {
-    window.location.href = '/logout';  // 假設 Django 的登出 URL 是 /logout
+    window.location.href = '/logout';  // Assuming Django logout URL is /logout
   };
 
-  // 使用 useEffect 在組件首次渲染時載入收件匣
+  // Use useEffect to load inbox on first render
   React.useEffect(() => {
     handleMailboxClick('inbox');
   }, []);
 
-  // 渲染 UI
+  // Render UI
   return (
     <div>
-      {/* 側邊欄，包含各種信箱按鈕 */}
+      {/* Sidebar containing mailbox buttons */}
       <div className="sidebar">
         <button 
           className="btn btn-sm btn-outline-primary" 
@@ -141,7 +141,6 @@ function App() {
         >
           Archived
         </button>
-        {/* 新增登出按鈕 */}
         <button 
           className="btn btn-sm btn-outline-danger" 
           onClick={handleLogout}
@@ -150,8 +149,8 @@ function App() {
         </button>
       </div>
       
-      {/* 根據當前視圖顯示不同的組件 */}
-      {/* 撰寫郵件視圖 */}
+      {/* Display different components based on current view */}
+      {/* Compose email view */}
       {view === 'compose' && (
         <ComposeEmail 
           onEmailSent={handleEmailSent}
@@ -159,7 +158,7 @@ function App() {
         />
       )}
       
-      {/* 信箱視圖 */}
+      {/* Mailbox view */}
       {view === 'list' && (
         <div id="emails-view">
           <h3>{currentMailbox.charAt(0).toUpperCase() + currentMailbox.slice(1)}</h3>
@@ -167,7 +166,7 @@ function App() {
         </div>
       )}
       
-      {/* 郵件詳情視圖 */}
+      {/* Email detail view */}
       {view === 'email' && selectedEmail && (
         <EmailView 
           email={selectedEmail} 
@@ -182,18 +181,18 @@ function App() {
   );
 }
 
-// 撰寫郵件組件
+// Compose email component
 function ComposeEmail({ onEmailSent, initialData }) {
-  // 管理表單狀態
+  // Manage form state
   const [recipients, setRecipients] = React.useState(initialData && initialData.recipients ? initialData.recipients : '');
   const [subject, setSubject] = React.useState(initialData && initialData.subject ? initialData.subject : '');
   const [body, setBody] = React.useState(initialData && initialData.body ? initialData.body : '');
 
-  // 處理表單提交
+  // Handle form submission
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    // 表單驗證
+    // Form validation
     if (!recipients.trim()) {
       alert('Recipients field is required.');
       return;
@@ -208,7 +207,7 @@ function ComposeEmail({ onEmailSent, initialData }) {
     }
 
     try {
-      // 發送郵件
+      // Send email
       await apiRequest(API.EMAILS, {
         method: 'POST',
         body: JSON.stringify({
@@ -224,7 +223,7 @@ function ComposeEmail({ onEmailSent, initialData }) {
     }
   };
 
-  // 渲染撰寫郵件表單
+  // Render compose email form
   return (
     <div id="compose-view">
       <h3>New Email</h3>
@@ -261,11 +260,11 @@ function ComposeEmail({ onEmailSent, initialData }) {
   );
 }
 
-// 郵件列表組件
+// Email list component
 function EmailList({ emails, onEmailClick }) {
   return (
     <div>
-      {/* 遍歷並渲染每封郵件 */}
+      {/* Iterate and render each email */}
       {emails.map(email => (
         <div 
           key={email.id} 
@@ -281,9 +280,9 @@ function EmailList({ emails, onEmailClick }) {
   );
 }
 
-// 郵件詳情視圖組件
+// Email detail view component
 function EmailView({ email, mailbox, onBack, setView, setReplyData, onArchive }) {
-  // 處理封存/取消封存
+  // Handle archive/unarchive
   const handleArchive = async () => {
     try {
       await apiRequest(API.EMAIL(email.id), {
@@ -299,9 +298,9 @@ function EmailView({ email, mailbox, onBack, setView, setReplyData, onArchive })
     }
   };
 
-  // 處理回覆郵件
+  // Handle reply to email
   const handleReply = () => {
-    // 設定回覆郵件的預設值
+    // Set default values for reply email
     const replySubject = email.subject.startsWith('Re: ') 
       ? email.subject 
       : `Re: ${email.subject}`;
@@ -311,7 +310,7 @@ On ${email.timestamp} ${email.sender} wrote:
 ${email.body}
     `;
 
-    // 更新 ComposeEmail 的狀態
+    // Update ComposeEmail state
     setView('compose');
     setReplyData({
       recipients: email.sender,
@@ -320,7 +319,7 @@ ${email.body}
     });
   };
 
-  // 渲染郵件詳情
+  // Render email details
   return (
     <div className="email-view">
       <div className="email-sender">
@@ -349,5 +348,5 @@ ${email.body}
   );
 }
 
-// 將 App 組件渲染到 DOM
+// Render App component to DOM
 ReactDOM.render(<App />, document.getElementById('app'));
