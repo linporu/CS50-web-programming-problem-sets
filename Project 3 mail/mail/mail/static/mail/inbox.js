@@ -106,9 +106,9 @@ function App() {
 }
 
 function ComposeEmail({ onEmailSent, initialData }) {
-  const [recipients, setRecipients] = React.useState(initialData?.recipients || '');
-  const [subject, setSubject] = React.useState(initialData?.subject || '');
-  const [body, setBody] = React.useState(initialData?.body || '');
+  const [recipients, setRecipients] = React.useState(initialData && initialData.recipients ? initialData.recipients : '');
+  const [subject, setSubject] = React.useState(initialData && initialData.subject ? initialData.subject : '');
+  const [body, setBody] = React.useState(initialData && initialData.body ? initialData.body : '');
 
   const handleSubmit = async (event) => {
     event.preventDefault();
