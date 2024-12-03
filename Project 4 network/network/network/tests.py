@@ -135,3 +135,60 @@ class ModelTests(TestCase):
         comments = self.post.comments.all()
         self.assertEqual(comments[0], comment1)  # Earlier comment should be first
         self.assertEqual(comments[1], comment2)
+
+    def test_post_likes_count(self):
+        """Test post likes_count property"""
+        # Initial count should be 0
+        self.assertEqual(self.post.likes_count, 0)
+        
+        # Add one like
+        Like.objects.create(user=self.user2, post=self.post)
+        self.assertEqual(self.post.likes_count, 1)
+        
+        # Add another like from different user
+        user3 = User.objects.create_user(username='testuser3', password='testpass123')
+        Like.objects.create(user=user3, post=self.post)
+        self.assertEqual(self.post.likes_count, 2)
+        
+        # Remove a like
+        Like.objects.filter(user=self.user2, post=self.post).delete()
+        self.assertEqual(self.post.likes_count, 1)
+
+    def test_post_comments_count(self):
+        """Test post comments_count property"""
+        # Initial count should be 0
+        self.assertEqual(self.post.comments_count, 0)
+        
+        # Add one comment
+        comment1 = Comment.objects.create(
+            post=self.post,
+            content='Test comment 1',
+            created_by=self.user2
+        )
+        self.assertEqual(self.post.comments_count, 1)
+        
+        # Add another comment
+        comment2 = Comment.objects.create(
+            post=self.post,
+            content='Test comment 2',
+            created_by=self.user2
+        )
+        self.assertEqual(self.post.comments_count, 2)
+        
+        # Soft delete a comment
+        comment1.is_deleted = True
+        comment1.save()
+        self.assertEqual(self.post.comments_count, 1)
+        
+        # Soft delete another comment
+        comment2.is_deleted = True
+        comment2.save()
+        self.assertEqual(self.post.comments_count, 0)
+        
+        # Add new comment after soft deletes
+        Comment.objects.create(
+            post=self.post,
+            content='Test comment 3',
+            created_by=self.user2
+        )
+        self.assertEqual(self.post.comments_count, 1)
