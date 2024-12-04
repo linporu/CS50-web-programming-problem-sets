@@ -79,7 +79,7 @@ def posts(request):
         try:
             data = json.loads(request.body)
             
-            if not data:
+            if not data.get('content'):
                 return JsonResponse({
                     'error': 'Post content cannot be empty.'
                 }, status=400)
@@ -87,7 +87,7 @@ def posts(request):
             # Create new post in database
             try:
                 Post.objects.create(
-                    content=data,
+                    content=data.get('content'),
                     created_by=request.user
                 )
                 
@@ -114,3 +114,15 @@ def posts(request):
             }, status=400)
     else:
         return render(request, "network/index.html")
+    
+
+def post(request):
+    pass
+
+
+def like(request):
+    pass
+
+
+def following(request):
+    pass
