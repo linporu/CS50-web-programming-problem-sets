@@ -4,6 +4,9 @@ from .models import Post, Comment, Like, Following
 from django.db.utils import IntegrityError
 from django.utils import timezone
 from datetime import timedelta
+from django.urls import reverse
+from django.test import Client
+import json
 
 User = get_user_model()
 
@@ -192,3 +195,38 @@ class ModelTests(TestCase):
             created_by=self.user2
         )
         self.assertEqual(self.post.comments_count, 1)
+
+class PostCreationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+        self.client.login(username='testuser', password='testpass123')
+
+    def test_create_post_success(self):
+        """Test successful post creation"""
+        response = self.client.post(reverse('posts'), json.dumps({'content': 'New post content'}), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['message'], 'Post created successfully.')
+        self.assertTrue(Post.objects.filter(content='New post content', created_by=self.user).exists())
+
+    def test_create_post_unauthenticated(self):
+        """Test post creation without authentication"""
+        self.client.logout()
+        response = self.client.post(reverse('posts'), json.dumps({'content': 'New post content'}), content_type='application/json')
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()['error'], 'You must be logged in to post.')
+
+    def test_create_post_empty_content(self):
+        """Test post creation with empty content"""
+        response = self.client.post(reverse('posts'), json.dumps({'content': ''}), content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'Post content cannot be empty.')
+
+    def test_create_post_invalid_json(self):
+        """Test post creation with invalid JSON"""
+        response = self.client.post(reverse('posts'), 'Invalid JSON', content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'Invalid JSON data.')
