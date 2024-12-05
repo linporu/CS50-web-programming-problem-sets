@@ -11,7 +11,7 @@ urlpatterns = [
 
     # Posts API
     path("api/posts", views.posts, name="posts"),
-    path("api/posts/<int:post_id>", views.post, name="post"),
+    path("api/posts/<int:post_id>", views.post_detail, name="post"),
     path("api/posts/<int:post_id>/like", views.like, name="like"),
     path("api/posts/following", views.following, name="following"),
 ]
