@@ -1,7 +1,7 @@
 import json
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
-from django.db import IntegrityError, DatabaseError
+from django.db import IntegrityError, DatabaseError, transaction
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
@@ -146,7 +146,7 @@ def post(request, post_id):
 
     # Edit post
     if request.method == "POST":
-        
+
         # Check if user is authenticated
         if not request.user.is_authenticated:
             return JsonResponse({
@@ -193,6 +193,44 @@ def post(request, post_id):
             return JsonResponse({
                 'error': 'Database operation failed.'
             }, status=500)
+        
+    # Soft delete post
+    elif request.method == "PUT":
+
+        # Check if user is authenticated
+        if not request.user.is_authenticated:
+            return JsonResponse({
+                'error': 'You must be logged in to delete posts.'
+            }, status=401)
+        
+        try:
+            post = Post.objects.get(pk=post_id)
+        except Post.DoesNotExist:
+            return JsonResponse({
+                'error': 'Post not found.'
+            }, status=404)
+
+        # Check if the logged-in user is the post author
+        if post.created_by != request.user:
+            return JsonResponse({
+                'error': 'You can only delete your own posts.'
+            }, status=403)
+        
+        # Save post deletion state
+        with transaction.atomic():
+            post.is_deleted = True
+            post.save()
+
+        return JsonResponse({
+            'message': 'Post deleted successfully.',
+                'post': post.serialize()  # Return updated post
+        }, status=200)
+    
+    # Not POST or PUT
+    else:
+        return JsonResponse({"error": "Only accept POST and PUT method."}, status=400)
+
+
 
 
 def like(request):
