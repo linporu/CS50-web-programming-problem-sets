@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.db import IntegrityError, DatabaseError, transaction
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render
 from django.urls import reverse
 from django.core.exceptions import ValidationError
 from .models import User, Post, Following, Like, Comment
@@ -142,10 +142,10 @@ def posts(request):
         return JsonResponse({"error": "Only accept GET and POST method."}, status=400)
     
 
-def post(request, post_id):
+def post_detail(request, post_id):
 
     # Edit post
-    if request.method == "POST":
+    if request.method == "PATCH":
 
         # Check if user is authenticated
         if not request.user.is_authenticated:
@@ -196,7 +196,7 @@ def post(request, post_id):
             }, status=500)
         
     # Soft delete post
-    elif request.method == "PUT":
+    elif request.method == "DELETE":
 
         # Check if user is authenticated
         if not request.user.is_authenticated:
@@ -227,9 +227,9 @@ def post(request, post_id):
                 'post': post.serialize()  # Return updated post
         }, status=200)
     
-    # Not POST or PUT
+    # Not PATCH or DELETE
     else:
-        return JsonResponse({"error": "Only accept POST and PUT method."}, status=400)
+        return JsonResponse({"error": "Only accept PATCH and DELETE method."}, status=400)
 
 
 

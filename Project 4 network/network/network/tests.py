@@ -355,7 +355,7 @@ class PostEditViewTests(TestCase):
         }
         
         # Send edit request
-        response = self.client.post(
+        response = self.client.patch(
             reverse('post', kwargs={'post_id': self.post.id}),
             json.dumps(edit_data),
             content_type='application/json'
@@ -379,7 +379,7 @@ class PostEditViewTests(TestCase):
             'content': 'Updated content'
         }
         
-        response = self.client.post(
+        response = self.client.patch(
             reverse('post', kwargs={'post_id': self.post.id}),
             json.dumps(edit_data),
             content_type='application/json'
@@ -398,7 +398,7 @@ class PostEditViewTests(TestCase):
             'content': 'Updated content'
         }
         
-        response = self.client.post(
+        response = self.client.patch(
             reverse('post', kwargs={'post_id': self.post.id}),
             json.dumps(edit_data),
             content_type='application/json'
@@ -416,7 +416,7 @@ class PostEditViewTests(TestCase):
             'content': ''
         }
         
-        response = self.client.post(
+        response = self.client.patch(
             reverse('post', kwargs={'post_id': self.post.id}),
             json.dumps(edit_data),
             content_type='application/json'
@@ -435,7 +435,7 @@ class PostEditViewTests(TestCase):
         }
         
         # Use a non-existing post_id
-        response = self.client.post(
+        response = self.client.patch(
             reverse('post', kwargs={'post_id': 99999}),
             json.dumps(edit_data),
             content_type='application/json'
@@ -451,7 +451,7 @@ class PostEditViewTests(TestCase):
         self.client.login(username='testuser1', password='testpass123')
         
         # Send invalid JSON
-        response = self.client.post(
+        response = self.client.patch(
             reverse('post', kwargs={'post_id': self.post.id}),
             '{invalid json',
             content_type='application/json'
@@ -469,7 +469,7 @@ class PostEditViewTests(TestCase):
             'content': 'Updated content'
         }
         
-        response = self.client.post(
+        response = self.client.patch(
             reverse('post', kwargs={'post_id': self.post.id}),
             json.dumps(edit_data),
             content_type='application/json'
@@ -515,7 +515,7 @@ class PostSoftDeleteViewTests(TestCase):
         """Test successful soft deletion by the owner"""
         self.client.login(username='testuser1', password='testpass123')
         
-        response = self.client.put(
+        response = self.client.delete(
             reverse('post', kwargs={'post_id': self.post.id}),
             content_type='application/json'
         )
@@ -529,7 +529,7 @@ class PostSoftDeleteViewTests(TestCase):
 
     def test_soft_delete_post_unauthenticated(self):
         """Test soft deletion when user is not logged in"""
-        response = self.client.put(
+        response = self.client.delete(
             reverse('post', kwargs={'post_id': self.post.id}),
             content_type='application/json'
         )
@@ -542,7 +542,7 @@ class PostSoftDeleteViewTests(TestCase):
         """Test soft deletion by non-owner"""
         self.client.login(username='testuser2', password='testpass123')
         
-        response = self.client.put(
+        response = self.client.delete(
             reverse('post', kwargs={'post_id': self.post.id}),
             content_type='application/json'
         )
@@ -555,7 +555,7 @@ class PostSoftDeleteViewTests(TestCase):
         """Test soft deletion of a post that doesn't exist"""
         self.client.login(username='testuser1', password='testpass123')
         
-        response = self.client.put(
+        response = self.client.delete(
             reverse('post', kwargs={'post_id': 99999}),
             content_type='application/json'
         )
@@ -576,14 +576,14 @@ class PostSoftDeleteViewTests(TestCase):
         
         self.assertEqual(response.status_code, 400)
         data = json.loads(response.content)
-        self.assertEqual(data['error'], 'Only accept POST and PUT method.')
+        self.assertEqual(data['error'], 'Only accept PATCH and DELETE method.')
         
-        # Test DELETE method
-        response = self.client.delete(
+        # Test POST method
+        response = self.client.post(
             reverse('post', kwargs={'post_id': self.post.id}),
             content_type='application/json'
         )
         
         self.assertEqual(response.status_code, 400)
         data = json.loads(response.content)
-        self.assertEqual(data['error'], 'Only accept POST and PUT method.')
+        self.assertEqual(data['error'], 'Only accept PATCH and DELETE method.')
