@@ -196,6 +196,16 @@ class ModelTests(TestCase):
         )
         self.assertEqual(self.post.comments_count, 1)
 
+    def test_post_serialize(self):
+        """Test the serialize method of Post model"""
+        serialized_post = self.post.serialize()
+        
+        self.assertEqual(serialized_post['id'], self.post.id)
+        self.assertEqual(serialized_post['content'], self.post.content)
+        self.assertEqual(serialized_post['created_by'], self.post.created_by.username)
+        self.assertEqual(serialized_post['created_at'], self.post.created_at.strftime("%Y-%m-%d %H:%M:%S"))
+        self.assertEqual(serialized_post['is_deleted'], self.post.is_deleted)
+
 class PostsListViewTests(TestCase):
     def setUp(self):
         # Create test user
