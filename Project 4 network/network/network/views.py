@@ -1,10 +1,12 @@
+import json
+from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
-from django.db import IntegrityError
-from django.http import HttpResponse, HttpResponseRedirect
+from django.db import IntegrityError, DatabaseError
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
-
-from .models import User
+from django.core.exceptions import ValidationError
+from .models import User, Post, Following, Like, Comment
 
 
 def index(request):
@@ -61,3 +63,92 @@ def register(request):
         return HttpResponseRedirect(reverse("index"))
     else:
         return render(request, "network/register.html")
+
+
+def posts(request):
+
+    # Create new post
+    if request.method == "POST":
+
+        # Authenticate before handling POST request
+        if not request.user.is_authenticated:
+            return JsonResponse({
+                'error': 'You must be logged in to post.'
+            }, status=401)
+        
+        try:
+            data = json.loads(request.body)
+            
+            if not data.get('content'):
+                return JsonResponse({
+                    'error': 'Post content cannot be empty.'
+                }, status=400)
+            
+            # Create new post in database
+            try:
+                Post.objects.create(
+                    content=data.get('content'),
+                    created_by=request.user
+                )
+                
+                return JsonResponse({
+                    'message': 'Post created successfully.'
+                }, status=200)
+            
+            except IntegrityError:
+                return JsonResponse({
+                    'error': 'Data integrity error, please check your input.'
+                }, status=400)
+            except ValidationError as e:
+                return JsonResponse({
+                    'error': f'Validation error: {str(e)}'
+                }, status=400)
+            except DatabaseError:
+                return JsonResponse({
+                    'error': 'Database operation error, please try again later.'
+                }, status=500)
+            
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'error': 'Invalid JSON data.'
+            }, status=400)
+    
+    # Get posts
+    elif request.method == "GET":
+        try:
+            posts = Post.objects.filter(is_deleted=False)
+            # Return posts in reverse chronologial order
+            posts = posts.order_by("-created_at").all()
+            return JsonResponse({
+                'message': 'Get posts successfully.',
+                'posts': [post.serialize() for post in posts]
+            }, status=200)
+        
+        except IntegrityError:
+            return JsonResponse({
+                'error': 'Data integrity error, please check your input.'
+            }, status=400)
+        except ValidationError as e:
+            return JsonResponse({
+                'error': f'Validation error: {str(e)}'
+            }, status=400)
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
+
+    # Not GET or POST
+    else:
+        return JsonResponse({"error": "Only accept GET and POST method."}, status=400)
+    
+
+def post(request):
+    pass
+
+
+def like(request):
+    pass
+
+
+def following(request):
+    pass

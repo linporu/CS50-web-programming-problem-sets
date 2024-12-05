@@ -4,6 +4,9 @@ from .models import Post, Comment, Like, Following
 from django.db.utils import IntegrityError
 from django.utils import timezone
 from datetime import timedelta
+from django.urls import reverse
+from django.test import Client
+import json
 
 User = get_user_model()
 
@@ -192,3 +195,132 @@ class ModelTests(TestCase):
             created_by=self.user2
         )
         self.assertEqual(self.post.comments_count, 1)
+
+    def test_post_serialize(self):
+        """Test the serialize method of Post model"""
+        serialized_post = self.post.serialize()
+        
+        self.assertEqual(serialized_post['id'], self.post.id)
+        self.assertEqual(serialized_post['content'], self.post.content)
+        self.assertEqual(serialized_post['created_by'], self.post.created_by.username)
+        self.assertEqual(serialized_post['created_at'], self.post.created_at.strftime("%Y-%m-%d %H:%M:%S"))
+        self.assertEqual(serialized_post['is_deleted'], self.post.is_deleted)
+
+class PostsListViewTests(TestCase):
+    def setUp(self):
+        # Create test user
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpassword'
+        )
+        
+        # Create test posts
+        self.post1 = Post.objects.create(
+            content='Test post 1',
+            created_by=self.user,
+            created_at=timezone.now()
+        )
+        
+        self.post2 = Post.objects.create(
+            content='Test post 2',
+            created_by=self.user,
+            created_at=timezone.now() + timedelta(hours=1)
+        )
+        
+        # Create a soft-deleted post
+        self.deleted_post = Post.objects.create(
+            content='Deleted post',
+            created_by=self.user,
+            is_deleted=True
+        )
+        
+        # Create test client
+        self.client = Client()
+
+    def test_get_posts_exclude_deleted(self):
+        """Ensure soft-deleted posts are not included in the response"""
+        response = self.client.get(reverse('posts'))
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.content)
+        posts = data['posts']
+        
+        # Check that the number of posts returned is correct (excluding deleted)
+        self.assertEqual(len(posts), 2)
+        
+        # Ensure the deleted post is not in the response
+        post_contents = [post['content'] for post in posts]
+        self.assertNotIn('Deleted post', post_contents)
+
+    def test_get_posts_order(self):
+        """Ensure posts are returned in reverse chronological order"""
+        response = self.client.get(reverse('posts'))
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.content)
+        posts = data['posts']
+        
+        # Check that posts are ordered from newest to oldest
+        self.assertEqual(posts[0]['content'], 'Test post 2')
+        self.assertEqual(posts[1]['content'], 'Test post 1')
+
+    def test_get_posts_response_format(self):
+        """Check the response format and message on successful retrieval"""
+        response = self.client.get(reverse('posts'))
+        self.assertEqual(response.status_code, 200)
+        
+        data = json.loads(response.content)
+        
+        # Verify the structure of the response
+        self.assertIn('message', data)
+        self.assertIn('posts', data)
+        self.assertEqual(data['message'], 'Get posts successfully.')
+        
+        # Verify the format of each post
+        for post in data['posts']:
+            self.assertIn('id', post)
+            self.assertIn('content', post)
+            self.assertIn('created_by', post)
+            self.assertIn('created_at', post)
+
+class PostsCreateViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpassword'
+        )
+        self.client = Client()
+
+    def test_create_post_authenticated(self):
+        """Test post creation when user is authenticated"""
+        self.client.login(username='testuser', password='testpassword')
+        response = self.client.post(
+            reverse('posts'),
+            json.dumps({'content': 'New test post'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data['message'], 'Post created successfully.')
+        self.assertTrue(Post.objects.filter(content='New test post').exists())
+
+    def test_create_post_unauthenticated(self):
+        """Test post creation when user is not authenticated"""
+        response = self.client.post(
+            reverse('posts'),
+            json.dumps({'content': 'New test post'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 401)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'You must be logged in to post.')
+
+    def test_invalid_method(self):
+        """Ensure error is returned for invalid HTTP methods"""
+        response = self.client.put(reverse('posts'))
+        self.assertEqual(response.status_code, 400)
+        
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Only accept GET and POST method.')

@@ -7,5 +7,11 @@ urlpatterns = [
     path("", views.index, name="index"),
     path("login", views.login_view, name="login"),
     path("logout", views.logout_view, name="logout"),
-    path("register", views.register, name="register")
+    path("register", views.register, name="register"),
+
+    # Posts API
+    path("api/posts", views.posts, name="posts"),
+    path("api/posts/<int:post_id>", views.post, name="post"),
+    path("api/posts/<int:post_id>/like", views.like, name="like"),
+    path("api/posts/following", views.following, name="following"),
 ]
