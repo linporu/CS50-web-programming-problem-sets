@@ -324,3 +324,169 @@ class PostsCreateViewTests(TestCase):
         
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Only accept GET and POST method.')
+
+class PostEditViewTests(TestCase):
+    def setUp(self):
+        # Create test users
+        self.user1 = User.objects.create_user(
+            username='testuser1',
+            password='testpass123'
+        )
+        self.user2 = User.objects.create_user(
+            username='testuser2',
+            password='testpass123'
+        )
+        
+        # Create test post
+        self.post = Post.objects.create(
+            content='Original content',
+            created_by=self.user1
+        )
+        
+        self.client = Client()
+        
+    def test_edit_post_success(self):
+        """Test successful post edit by the owner"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        # Prepare edit data
+        edit_data = {
+            'content': 'Updated content'
+        }
+        
+        # Send edit request
+        response = self.client.post(
+            reverse('post', kwargs={'post_id': self.post.id}),
+            json.dumps(edit_data),
+            content_type='application/json'
+        )
+        
+        # Check response
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data['message'], 'Post updated successfully.')
+        
+        # Verify post was updated in database
+        updated_post = Post.objects.get(id=self.post.id)
+        self.assertEqual(updated_post.content, 'Updated content')
+        
+        # Verify updated_at was changed
+        self.assertNotEqual(updated_post.updated_at, updated_post.created_at)
+
+    def test_edit_post_unauthenticated(self):
+        """Test post edit when user is not logged in"""
+        edit_data = {
+            'content': 'Updated content'
+        }
+        
+        response = self.client.post(
+            reverse('post', kwargs={'post_id': self.post.id}),
+            json.dumps(edit_data),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 401)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'You must be logged in to edit posts.')
+
+    def test_edit_post_unauthorized(self):
+        """Test post edit by non-owner"""
+        # Login as different user
+        self.client.login(username='testuser2', password='testpass123')
+        
+        edit_data = {
+            'content': 'Updated content'
+        }
+        
+        response = self.client.post(
+            reverse('post', kwargs={'post_id': self.post.id}),
+            json.dumps(edit_data),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 403)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'You can only edit your own posts.')
+
+    def test_edit_post_blank_content(self):
+        """Test post edit with blank content"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        edit_data = {
+            'content': ''
+        }
+        
+        response = self.client.post(
+            reverse('post', kwargs={'post_id': self.post.id}),
+            json.dumps(edit_data),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Post content cannot be blank.')
+
+    def test_edit_nonexistent_post(self):
+        """Test editing a post that doesn't exist"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        edit_data = {
+            'content': 'Updated content'
+        }
+        
+        # Use a non-existing post_id
+        response = self.client.post(
+            reverse('post', kwargs={'post_id': 99999}),
+            json.dumps(edit_data),
+            content_type='application/json'
+        )
+      
+        self.assertEqual(
+            json.loads(response.content),
+            {'error': 'Post not found.'}
+        )
+
+    def test_edit_post_invalid_json(self):
+        """Test post edit with invalid JSON data"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        # Send invalid JSON
+        response = self.client.post(
+            reverse('post', kwargs={'post_id': self.post.id}),
+            '{invalid json',
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Invalid JSON data.')
+
+    def test_edit_post_response_format(self):
+        """Test the format of successful edit response"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        edit_data = {
+            'content': 'Updated content'
+        }
+        
+        response = self.client.post(
+            reverse('post', kwargs={'post_id': self.post.id}),
+            json.dumps(edit_data),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        
+        # Verify response structure
+        self.assertIn('message', data)
+        self.assertIn('post', data)
+        
+        # Verify post data structure
+        post_data = data['post']
+        self.assertIn('id', post_data)
+        self.assertIn('content', post_data)
+        self.assertIn('created_by', post_data)
+        self.assertIn('created_at', post_data)
+        self.assertIn('updated_at', post_data)
+        self.assertIn('is_deleted', post_data)
