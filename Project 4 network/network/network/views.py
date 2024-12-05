@@ -177,8 +177,9 @@ def post(request, post_id):
                 }, status=400)
             
             # Save post content
-            post.content = content
-            post.save()
+            with transaction.atomic():
+                post.content = content
+                post.save()
 
             return JsonResponse({
                 'message': 'Post updated successfully.',
