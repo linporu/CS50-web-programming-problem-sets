@@ -490,3 +490,100 @@ class PostEditViewTests(TestCase):
         self.assertIn('created_at', post_data)
         self.assertIn('updated_at', post_data)
         self.assertIn('is_deleted', post_data)
+
+class PostSoftDeleteViewTests(TestCase):
+    def setUp(self):
+        # Create test users
+        self.user1 = User.objects.create_user(
+            username='testuser1',
+            password='testpass123'
+        )
+        self.user2 = User.objects.create_user(
+            username='testuser2',
+            password='testpass123'
+        )
+        
+        # Create test post
+        self.post = Post.objects.create(
+            content='Original content',
+            created_by=self.user1
+        )
+        
+        self.client = Client()
+
+    def test_soft_delete_post_success(self):
+        """Test successful soft deletion by the owner"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        response = self.client.put(
+            reverse('post', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data['message'], 'Post deleted successfully.')
+        
+        # Verify post is marked as deleted
+        self.assertTrue(Post.objects.get(id=self.post.id).is_deleted)
+
+    def test_soft_delete_post_unauthenticated(self):
+        """Test soft deletion when user is not logged in"""
+        response = self.client.put(
+            reverse('post', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 401)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'You must be logged in to delete posts.')
+
+    def test_soft_delete_post_unauthorized(self):
+        """Test soft deletion by non-owner"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        response = self.client.put(
+            reverse('post', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 403)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'You can only delete your own posts.')
+
+    def test_soft_delete_nonexistent_post(self):
+        """Test soft deletion of a post that doesn't exist"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        response = self.client.put(
+            reverse('post', kwargs={'post_id': 99999}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Post not found.')
+
+    def test_soft_delete_post_invalid_method(self):
+        """Ensure error is returned for invalid HTTP methods"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        # Test GET method
+        response = self.client.get(
+            reverse('post', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Only accept POST and PUT method.')
+        
+        # Test DELETE method
+        response = self.client.delete(
+            reverse('post', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Only accept POST and PUT method.')
