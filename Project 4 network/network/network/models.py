@@ -25,6 +25,15 @@ class Post(models.Model):
     def comments_count(self):
         return self.comments.filter(is_deleted=False).count()
 
+    def serialize(self):
+        return {
+            "id": self.id,
+            "content": self.content,
+            "created_by": self.created_by.username,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "is_deleted": self.is_deleted
+        }
+
     class Meta:
         ordering = ['-created_at']
 
