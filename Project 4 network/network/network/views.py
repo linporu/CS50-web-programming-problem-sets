@@ -116,7 +116,7 @@ def posts(request):
     # Get posts
     elif request.method == "GET":
         try:
-            posts = Post.objects.filter(is_deleted=False)
+            posts = Post.objects.select_related('created_by').filter(is_deleted=False)
             # Return posts in reverse chronologial order
             posts = posts.order_by("-created_at").all()
             return JsonResponse({
@@ -143,6 +143,30 @@ def posts(request):
     
 
 def post_detail(request, post_id):
+
+    # Get post detail
+    if request.method == "GET":
+        try:
+            post = Post.objects.select_related('created_by').get(pk=post_id)
+
+            if post.is_deleted:
+                return JsonResponse({
+                    'error': 'This post has been deleted by the author.'
+                }, status=410)
+            
+            return JsonResponse({
+                'message': 'Get post successfully.',
+                'post': post.serialize()
+            }, status=200)
+
+        except Post.DoesNotExist:
+            return JsonResponse({
+                'error': 'Post not found.'
+            }, status=404)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)
 
     # Edit post
     if request.method == "PATCH":
@@ -227,9 +251,9 @@ def post_detail(request, post_id):
                 'post': post.serialize()  # Return updated post
         }, status=200)
     
-    # Not PATCH or DELETE
+    # Not GET, PATCH or DELETE request
     else:
-        return JsonResponse({"error": "Only accept PATCH and DELETE method."}, status=400)
+        return JsonResponse({"error": "Only accept GET, PATCH and DELETE request methods."}, status=400)
 
 
 
