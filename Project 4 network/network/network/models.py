@@ -1,5 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
+from datetime import timedelta
 
 
 class User(AbstractUser):
@@ -7,10 +9,12 @@ class User(AbstractUser):
 
 
 class Post(models.Model):
+    CACHE_TIMEOUT = 86400  # 24 hours in seconds
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._cached_serialized_data = None  # Initialize cache as None
+        self._cached_serialized_data = None
+        self._cache_timestamp = None
 
     content = models.TextField()
     created_by = models.ForeignKey(
@@ -33,14 +37,26 @@ class Post(models.Model):
     def clear_cache(self):
         """Clear the cache"""
         self._cached_serialized_data = None
+        self._cache_timestamp = None
+
+    def is_cache_valid(self):
+        """Check if the cache is still valid"""
+        if self._cache_timestamp is None:
+            return False
+        
+        cache_age = timezone.now() - self._cache_timestamp
+        return cache_age.total_seconds() < self.CACHE_TIMEOUT
 
     def serialize(self, force_refresh=False):
         """
-        Serialize Post data
+        Serialize Post data with cache timeout
         :param force_refresh: Whether to force refresh the cache
         """
-        # If force refresh or cache doesn't exist
-        if force_refresh or self._cached_serialized_data is None:
+        # If force refresh or cache doesn't exist or cache expired
+        if (force_refresh or 
+            self._cached_serialized_data is None or 
+            not self.is_cache_valid()):
+            
             self._cached_serialized_data = {
                 "id": self.id,
                 "content": self.content,
@@ -49,6 +65,8 @@ class Post(models.Model):
                 "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
                 "is_deleted": self.is_deleted
             }
+            self._cache_timestamp = timezone.now()
+            
         return self._cached_serialized_data
     
     def save(self, *args, **kwargs):
