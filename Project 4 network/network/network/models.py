@@ -5,7 +5,14 @@ from datetime import timedelta
 
 
 class User(AbstractUser):
-    pass
+    
+    @property
+    def following_count(self):
+        return self.following.count()
+    
+    @property
+    def follower_count(self):
+        return self.followers.count()
 
 
 class Post(models.Model):
@@ -63,7 +70,10 @@ class Post(models.Model):
                 "created_by": self.created_by.username,
                 "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                 "updated_at": self.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
-                "is_deleted": self.is_deleted
+                "is_deleted": self.is_deleted,
+                "likes_count": self.likes_count,
+                "comments": [comment.serialize() for comment in self.comments.all()],
+                "comments_count": self.comments_count
             }
             self._cache_timestamp = timezone.now()
             
@@ -126,6 +136,16 @@ class Comment(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     is_deleted = models.BooleanField(default=False)
+
+    def serialize(self):
+        """Serialize comment data"""
+        return {
+            "id": self.id,
+            "content": self.content,
+            "created_by": self.created_by.username,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "is_deleted": self.is_deleted
+        }
 
     class Meta:
         ordering = ['created_at']
