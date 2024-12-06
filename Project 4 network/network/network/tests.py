@@ -7,6 +7,9 @@ from datetime import timedelta
 from django.urls import reverse
 from django.test import Client
 import json
+from django.db import models
+from django.db.utils import DatabaseError
+from unittest.mock import patch
 
 User = get_user_model()
 
@@ -306,6 +309,120 @@ class ModelTests(TestCase):
         old_timestamp = self.post._cache_timestamp
         self.post.serialize(force_refresh=True)
         self.assertNotEqual(self.post._cache_timestamp, old_timestamp)
+
+    def test_post_serialize_with_comments(self):
+        """Test serialization of post with comments"""
+        # Create test comments
+        comment1 = Comment.objects.create(
+            post=self.post,
+            content='Test comment 1',
+            created_by=self.user2
+        )
+        comment2 = Comment.objects.create(
+            post=self.post,
+            content='Test comment 2', 
+            created_by=self.user2,
+            is_deleted=True  # Deleted comment
+        )
+        
+        # Serialize post
+        serialized_data = self.post.serialize()
+        
+        # Verify comment-related data
+        self.assertEqual(serialized_data['comments_count'], 1)  # Only count non-deleted comments
+        self.assertEqual(len(serialized_data['comments']), 2)  # But return all comments
+        
+        # Verify comment serialization format
+        comments = serialized_data['comments']
+        self.assertTrue(isinstance(comments, list))
+        
+        # Verify comment content and format
+        for comment in comments:
+            self.assertIn('id', comment)
+            self.assertIn('content', comment)
+            self.assertIn('created_by', comment)
+            self.assertIn('created_at', comment)
+            self.assertIn('is_deleted', comment)
+        
+        # Verify comment order (sorted by creation time)
+        self.assertEqual(comments[0]['content'], 'Test comment 1')
+        self.assertEqual(comments[1]['content'], 'Test comment 2')
+        self.assertEqual(comments[0]['created_by'], self.user2.username)
+
+    def test_post_serialize_cache_with_new_comment(self):
+        """Test cache behavior when adding new comments"""
+        # Initial serialization
+        initial_data = self.post.serialize()
+        initial_comments_count = initial_data['comments_count']
+        
+        # Add new comment
+        Comment.objects.create(
+            post=self.post,
+            content='New comment',
+            created_by=self.user2
+        )
+        
+        # Use cached serialized data
+        cached_data = self.post.serialize()
+        self.assertEqual(cached_data['comments_count'], initial_comments_count)
+        
+        # Force cache refresh
+        fresh_data = self.post.serialize(force_refresh=True)
+        self.assertEqual(fresh_data['comments_count'], initial_comments_count + 1)
+
+    def test_post_serialize_with_deleted_comments(self):
+        """Test serialization with soft-deleted comments"""
+        # Create active comment
+        active_comment = Comment.objects.create(
+            post=self.post,
+            content='Active comment',
+            created_by=self.user2
+        )
+        
+        # Create deleted comment
+        deleted_comment = Comment.objects.create(
+            post=self.post,
+            content='Deleted comment',
+            created_by=self.user2,
+            is_deleted=True
+        )
+        
+        serialized_data = self.post.serialize()
+        
+        # Verify comment count only includes active comments
+        self.assertEqual(serialized_data['comments_count'], 1)
+        
+        # Verify comments list includes all comments
+        comments = serialized_data['comments']
+        self.assertEqual(len(comments), 2)
+        
+        # Verify comment contents
+        comment_contents = [c['content'] for c in comments]
+        self.assertIn('Active comment', comment_contents)
+        self.assertIn('Deleted comment', comment_contents)
+        
+        # Verify comment status
+        active_comments = [c for c in comments if not c['is_deleted']]
+        deleted_comments = [c for c in comments if c['is_deleted']]
+        self.assertEqual(len(active_comments), 1)
+        self.assertEqual(len(deleted_comments), 1)
+
+    def test_comment_serialize(self):
+        """Test the serialize method of Comment model"""
+        comment = Comment.objects.create(
+            post=self.post,
+            content='Test comment',
+            created_by=self.user2
+        )
+        
+        serialized_data = comment.serialize()
+        
+        # Verify serialization format
+        self.assertEqual(serialized_data['id'], comment.id)
+        self.assertEqual(serialized_data['content'], 'Test comment')
+        self.assertEqual(serialized_data['created_by'], self.user2.username)
+        self.assertFalse(serialized_data['is_deleted'])
+        self.assertTrue('created_at' in serialized_data)
 
 class PostsListViewTests(TestCase):
     def setUp(self):
@@ -766,3 +883,124 @@ class PostMethodTests(TestCase):
                 data['error'],
                 'Only accept GET, PATCH and DELETE methods.'
             )
+
+class UserDetailViewTests(TestCase):
+    def setUp(self):
+        # Create test users
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123',
+            email='test@example.com'
+        )
+        
+        # Create test posts
+        self.active_post = Post.objects.create(
+            content='Active post',
+            created_by=self.user
+        )
+        
+        self.deleted_post = Post.objects.create(
+            content='Deleted post',
+            created_by=self.user,
+            is_deleted=True
+        )
+        
+        # Create another user for testing follow functionality
+        self.other_user = User.objects.create_user(
+            username='otheruser',
+            password='testpass123'
+        )
+        
+        # Create follow relationship
+        Following.objects.create(user=self.user, follower=self.other_user)
+        
+        self.client = Client()
+
+    def test_get_user_detail_success(self):
+        """Test successful retrieval of user details"""
+        # Create additional follow relationship: self.user follows other_user
+        Following.objects.create(
+            user=self.other_user,  # User being followed
+            follower=self.user     # Follower
+        )
+        
+        response = self.client.get(
+            reverse('user_detail', kwargs={'username': self.user.username})
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        
+        # Verify response format
+        self.assertEqual(data['message'], 'Get user detail successfully.')
+        self.assertIn('user', data)
+        self.assertIn('posts', data)
+        
+        # Verify user data
+        user_data = data['user']
+        self.assertEqual(user_data['username'], self.user.username)
+        self.assertEqual(user_data['email'], self.user.email)
+        self.assertEqual(user_data['following_count'], 1)  # self.user follows 1 person
+        self.assertEqual(user_data['follower_count'], 1)  # self.user has 1 follower
+        
+        # Verify posts list
+        posts = data['posts']
+        self.assertEqual(len(posts), 1)  # Should only return non-deleted posts
+        self.assertEqual(posts[0]['content'], 'Active post')
+
+    def test_get_nonexistent_user(self):
+        """Test retrieving non-existent user"""
+        response = self.client.get(
+            reverse('user_detail', kwargs={'username': 'nonexistent'})
+        )
+        
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'User not found.')
+
+    def test_invalid_http_method(self):
+        """Test invalid HTTP methods"""
+        invalid_methods = ['POST', 'PUT', 'PATCH', 'DELETE']
+        
+        for method in invalid_methods:
+            response = getattr(self.client, method.lower())(
+                reverse('user_detail', kwargs={'username': self.user.username})
+            )
+            
+            self.assertEqual(response.status_code, 405)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Only accept GET methods.')
+
+    def test_post_ordering(self):
+        """Test post ordering"""
+        # Create a newer post
+        newer_post = Post.objects.create(
+            content='Newer post',
+            created_by=self.user,
+            created_at=timezone.now() + timedelta(hours=1)
+        )
+        
+        response = self.client.get(
+            reverse('user_detail', kwargs={'username': self.user.username})
+        )
+        
+        data = json.loads(response.content)
+        posts = data['posts']
+        
+        # Verify posts are ordered by descending creation time
+        self.assertEqual(len(posts), 2)
+        self.assertEqual(posts[0]['content'], 'Newer post')
+        self.assertEqual(posts[1]['content'], 'Active post')
+
+    def test_database_error_handling(self):
+        """Test database error handling"""
+        with patch('network.models.User.objects.get') as mock_get:
+            mock_get.side_effect = DatabaseError("Database error")
+            
+            response = self.client.get(
+                reverse('user_detail', kwargs={'username': self.user.username})
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation failed.')
