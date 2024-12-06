@@ -116,9 +116,15 @@ def posts(request):
     # Get posts
     elif request.method == "GET":
         try:
-            posts = Post.objects.select_related('created_by').filter(is_deleted=False)
-            # Return posts in reverse chronologial order
-            posts = posts.order_by("-created_at").all()
+            posts = Post.objects.select_related(
+                'created_by'
+            ).prefetch_related(
+                'likes', 
+                'comments'
+            ).filter(
+                is_deleted=False
+            ).order_by("-created_at")
+
             return JsonResponse({
                 'message': 'Get posts successfully.',
                 'posts': [post.serialize() for post in posts]
@@ -256,11 +262,55 @@ def post_detail(request, post_id):
         return JsonResponse({"error": "Only accept GET, PATCH and DELETE methods."}, status=400)
 
 
-
-
 def like(request):
     pass
 
 
-def following(request):
+def user_detail(request, username):
+    # Get user detail
+    if request.method == "GET":
+        try:
+            user = User.objects.get(username=username)
+            
+            posts = Post.objects.filter(
+                created_by=user,
+                is_deleted=False
+            ).select_related(
+                'created_by'
+            ).prefetch_related(
+                'likes', 
+                'comments'
+            ).order_by('-created_at')
+
+            return JsonResponse({
+                'message': 'Get user detail successfully.',
+                'user': {
+                    'username': user.username,
+                    'email': user.email,
+                    'following_count': user.following_count,
+                    'follower_count': user.follower_count,
+                },
+                'posts': [post.serialize() for post in posts],    
+            }, status=200)
+
+        except User.DoesNotExist:
+            return JsonResponse({
+                'error': 'User not found.'
+            }, status=404)
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation failed.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': f'Unexpected error: {str(e)}'
+            }, status=500)
+    
+    # Invalid method
+    return JsonResponse({
+        'error': 'Only accept GET methods.'
+    }, status=405)
+
+
+def user_following(request, username):
     pass
