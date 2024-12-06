@@ -253,7 +253,7 @@ def post_detail(request, post_id):
     
     # Not GET, PATCH or DELETE request
     else:
-        return JsonResponse({"error": "Only accept GET, PATCH and DELETE request methods."}, status=400)
+        return JsonResponse({"error": "Only accept GET, PATCH and DELETE methods."}, status=400)
 
 
 
