@@ -612,3 +612,56 @@ class PostSoftDeleteViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Post not found.')
+
+class PostMethodTests(TestCase):
+    """Test case for handling HTTP methods in post-related views"""
+    
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser1',
+            password='testpass123'
+        )
+        self.post = Post.objects.create(
+            content='Test content',
+            created_by=self.user
+        )
+        self.client = Client()
+        self.client.login(username='testuser1', password='testpass123')
+
+    def test_posts_list_invalid_methods(self):
+        """Test invalid HTTP methods for posts list endpoint"""
+        url = reverse('posts')
+        
+        # Test all invalid methods
+        invalid_methods = ['PUT', 'PATCH', 'DELETE']
+        for method in invalid_methods:
+            response = getattr(self.client, method.lower())(
+                url,
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(
+                data['error'],
+                'Only accept GET and POST method.'
+            )
+
+    def test_post_detail_invalid_methods(self):
+        """Test invalid HTTP methods for post detail endpoint"""
+        url = reverse('post', kwargs={'post_id': self.post.id})
+        
+        # Test all invalid methods
+        invalid_methods = ['POST', 'PUT']
+        for method in invalid_methods:
+            response = getattr(self.client, method.lower())(
+                url,
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(
+                data['error'],
+                'Only accept GET, PATCH and DELETE request methods.'
+            )
