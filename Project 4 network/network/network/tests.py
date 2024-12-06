@@ -325,6 +325,55 @@ class PostsCreateViewTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Only accept GET and POST method.')
 
+class PostDetailViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123'
+        )
+        self.post = Post.objects.create(
+            content='Test post content',
+            created_by=self.user
+        )
+        self.client = Client()
+
+    def test_get_post_success(self):
+        """Test successful post retrieval"""
+        response = self.client.get(
+            reverse('post', kwargs={'post_id': self.post.id})
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data['message'], 'Get post successfully.')
+        self.assertEqual(data['post']['content'], 'Test post content')
+
+    def test_get_deleted_post(self):
+        """Test retrieval of a soft-deleted post"""
+        self.post.is_deleted = True
+        self.post.save()
+        
+        response = self.client.get(
+            reverse('post', kwargs={'post_id': self.post.id})
+        )
+        
+        self.assertEqual(response.status_code, 410)
+        data = json.loads(response.content)
+        self.assertEqual(
+            data['error'], 
+            'This post has been deleted by the author.'
+        )
+
+    def test_get_nonexistent_post(self):
+        """Test retrieval of a non-existent post"""
+        response = self.client.get(
+            reverse('post', kwargs={'post_id': 99999})
+        )
+        
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Post not found.')
+
 class PostEditViewTests(TestCase):
     def setUp(self):
         # Create test users
@@ -563,27 +612,3 @@ class PostSoftDeleteViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Post not found.')
-
-    def test_soft_delete_post_invalid_method(self):
-        """Ensure error is returned for invalid HTTP methods"""
-        self.client.login(username='testuser1', password='testpass123')
-        
-        # Test GET method
-        response = self.client.get(
-            reverse('post', kwargs={'post_id': self.post.id}),
-            content_type='application/json'
-        )
-        
-        self.assertEqual(response.status_code, 400)
-        data = json.loads(response.content)
-        self.assertEqual(data['error'], 'Only accept PATCH and DELETE method.')
-        
-        # Test POST method
-        response = self.client.post(
-            reverse('post', kwargs={'post_id': self.post.id}),
-            content_type='application/json'
-        )
-        
-        self.assertEqual(response.status_code, 400)
-        data = json.loads(response.content)
-        self.assertEqual(data['error'], 'Only accept PATCH and DELETE method.')
