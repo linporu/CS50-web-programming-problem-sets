@@ -206,6 +206,60 @@ class ModelTests(TestCase):
         self.assertEqual(serialized_post['created_at'], self.post.created_at.strftime("%Y-%m-%d %H:%M:%S"))
         self.assertEqual(serialized_post['is_deleted'], self.post.is_deleted)
 
+    def test_post_cache_mechanism(self):
+        """Test the caching mechanism of Post serialization"""
+        # Initial serialization should create cache
+        serialized_data1 = self.post.serialize()
+        self.assertIsNotNone(self.post._cached_serialized_data)
+        
+        # Second serialization should use cache (same object instance)
+        serialized_data2 = self.post.serialize()
+        self.assertIs(serialized_data1, serialized_data2)  # Verify it's the same object
+
+    def test_post_cache_clearing(self):
+        """Test cache clearing when post is updated"""
+        # Initial serialization
+        self.post.serialize()
+        initial_cache = self.post._cached_serialized_data
+        
+        # Update post content
+        self.post.content = "Updated content"
+        self.post.save()
+        
+        # Verify cache was cleared
+        self.assertIsNone(self.post._cached_serialized_data)
+        
+        # Re-serialize
+        new_serialized_data = self.post.serialize()
+        self.assertNotEqual(initial_cache, new_serialized_data)
+        self.assertEqual(new_serialized_data['content'], "Updated content")
+
+    def test_force_refresh_cache(self):
+        """Test forcing cache refresh"""
+        # Initial serialization
+        initial_data = self.post.serialize()
+        
+        # Directly modify content (without save())
+        self.post.content = "Changed content"
+        
+        # Normal serialization will use cache
+        cached_data = self.post.serialize()
+        self.assertEqual(cached_data['content'], initial_data['content'])
+        
+        # Force cache refresh
+        refreshed_data = self.post.serialize(force_refresh=True)
+        self.assertEqual(refreshed_data['content'], "Changed content")
+
+    def test_clear_cache_method(self):
+        """Test the clear_cache method"""
+        # Create cache
+        self.post.serialize()
+        self.assertIsNotNone(self.post._cached_serialized_data)
+        
+        # Clear cache
+        self.post.clear_cache()
+        self.assertIsNone(self.post._cached_serialized_data)
+
 class PostsListViewTests(TestCase):
     def setUp(self):
         # Create test user
