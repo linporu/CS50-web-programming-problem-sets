@@ -663,5 +663,5 @@ class PostMethodTests(TestCase):
             data = json.loads(response.content)
             self.assertEqual(
                 data['error'],
-                'Only accept GET, PATCH and DELETE request methods.'
+                'Only accept GET, PATCH and DELETE methods.'
             )
