@@ -260,6 +260,53 @@ class ModelTests(TestCase):
         self.post.clear_cache()
         self.assertIsNone(self.post._cached_serialized_data)
 
+    def test_cache_timeout(self):
+        """Test cache timeout mechanism"""
+        # Initial serialization
+        initial_data = self.post.serialize()
+        initial_timestamp = self.post._cache_timestamp
+        
+        # Verify cache is valid
+        self.assertTrue(self.post.is_cache_valid())
+        
+        # Simulate cache about to expire (set time to 24 hours later)
+        self.post._cache_timestamp = timezone.now() - timedelta(
+            seconds=Post.CACHE_TIMEOUT - 1
+        )
+        self.assertTrue(self.post.is_cache_valid())  # Not expired yet
+        
+        # Simulate expired cache
+        self.post._cache_timestamp = timezone.now() - timedelta(
+            seconds=Post.CACHE_TIMEOUT + 1
+        )
+        self.assertFalse(self.post.is_cache_valid())  # Expired
+        
+        # Verify cache is regenerated after expiration
+        new_data = self.post.serialize()
+        self.assertNotEqual(self.post._cache_timestamp, initial_timestamp)
+
+    def test_cache_invalidation_scenarios(self):
+        """Test various cache invalidation scenarios"""
+        # 1. Initial state
+        self.assertIsNone(self.post._cache_timestamp)
+        self.assertFalse(self.post.is_cache_valid())
+        
+        # 2. Create cache
+        self.post.serialize()
+        self.assertIsNotNone(self.post._cache_timestamp)
+        self.assertTrue(self.post.is_cache_valid())
+        
+        # 3. Clear cache
+        self.post.clear_cache()
+        self.assertIsNone(self.post._cache_timestamp)
+        self.assertFalse(self.post.is_cache_valid())
+        
+        # 4. Force refresh
+        self.post.serialize()
+        old_timestamp = self.post._cache_timestamp
+        self.post.serialize(force_refresh=True)
+        self.assertNotEqual(self.post._cache_timestamp, old_timestamp)
+
 class PostsListViewTests(TestCase):
     def setUp(self):
         # Create test user
