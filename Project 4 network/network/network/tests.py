@@ -1004,3 +1004,212 @@ class UserDetailViewTests(TestCase):
             self.assertEqual(response.status_code, 500)
             data = json.loads(response.content)
             self.assertEqual(data['error'], 'Database operation failed.')
+
+class PostLikeViewTests(TestCase):
+    def setUp(self):
+        # Create test users
+        self.user1 = User.objects.create_user(
+            username='testuser1',
+            password='testpass123'
+        )
+        self.user2 = User.objects.create_user(
+            username='testuser2',
+            password='testpass123'
+        )
+        
+        # Create test post
+        self.post = Post.objects.create(
+            content='Test post content',
+            created_by=self.user1
+        )
+        
+        self.client = Client()
+        
+    def test_like_post_success(self):
+        """Test successful post like"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        response = self.client.post(
+            reverse('like', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data['message'], 'Post liked successfully.')
+        
+        # Verify like was created in database
+        self.assertTrue(
+            Like.objects.filter(
+                user=self.user2,
+                post=self.post
+            ).exists()
+        )
+        
+    def test_like_post_unauthenticated(self):
+        """Test liking post when user is not logged in"""
+        response = self.client.post(
+            reverse('like', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 401)
+        data = json.loads(response.content)
+        self.assertEqual(
+            data['error'],
+            'You must be logged in to like posts.'
+        )
+        
+    def test_like_nonexistent_post(self):
+        """Test liking a post that doesn't exist"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        response = self.client.post(
+            reverse('like', kwargs={'post_id': 99999}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Post not found.')
+        
+    def test_like_already_liked_post(self):
+        """Test liking a post that's already been liked"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        # Create initial like
+        Like.objects.create(user=self.user2, post=self.post)
+        
+        # Try to like again
+        response = self.client.post(
+            reverse('like', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(
+            data['error'],
+            'You have already liked this post.'
+        )
+        
+    def test_unlike_post_success(self):
+        """Test successful post unlike"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        # Create initial like
+        Like.objects.create(user=self.user2, post=self.post)
+        
+        # Unlike post
+        response = self.client.delete(
+            reverse('like', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data['message'], 'Post unliked successfully.')
+        
+        # Verify like was removed from database
+        self.assertFalse(
+            Like.objects.filter(
+                user=self.user2,
+                post=self.post
+            ).exists()
+        )
+        
+    def test_unlike_not_liked_post(self):
+        """Test unliking a post that hasn't been liked"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        response = self.client.delete(
+            reverse('like', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(
+            data['error'],
+            'You have not liked this post.'
+        )
+        
+    def test_invalid_http_method(self):
+        """Test invalid HTTP methods"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        invalid_methods = ['PUT', 'PATCH', 'GET']
+        
+        for method in invalid_methods:
+            response = getattr(self.client, method.lower())(
+                reverse('like', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 405)
+            data = json.loads(response.content)
+            self.assertEqual(
+                data['error'],
+                'Only accept POST and DELETE methods.'
+            )
+            
+    def test_like_count_updates(self):
+        """Test that post's like count updates correctly"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        # Initial like count should be 0
+        self.assertEqual(self.post.likes_count, 0)
+        
+        # Like the post
+        self.client.post(
+            reverse('like', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+        
+        # Refresh post from database
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.likes_count, 1)
+        
+        # Unlike the post
+        self.client.delete(
+            reverse('like', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+        
+        # Refresh post from database
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.likes_count, 0)
+        
+    def test_multiple_users_like(self):
+        """Test multiple users liking the same post"""
+        # Create additional test user
+        user3 = User.objects.create_user(
+            username='testuser3',
+            password='testpass123'
+        )
+        
+        # User2 likes the post
+        self.client.login(username='testuser2', password='testpass123')
+        self.client.post(
+            reverse('like', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+        
+        # User3 likes the post
+        self.client.login(username='testuser3', password='testpass123')
+        self.client.post(
+            reverse('like', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+        
+        # Verify like count
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.likes_count, 2)
+        
+        # Verify both likes exist in database
+        self.assertTrue(
+            Like.objects.filter(user=self.user2, post=self.post).exists()
+        )
+        self.assertTrue(
+            Like.objects.filter(user=user3, post=self.post).exists()
+        )
