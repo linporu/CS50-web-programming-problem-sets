@@ -262,9 +262,66 @@ def post_detail(request, post_id):
         return JsonResponse({"error": "Only accept GET, PATCH and DELETE methods."}, status=400)
 
 
-def like(request):
-    pass
+def like(request, post_id):
+    
+    # Check if user is authenticated for both POST and DELETE
+    if not request.user.is_authenticated:
+        return JsonResponse({
+            'error': 'You must be logged in to like posts.'
+        }, status=401)
+    
+    # Check if post exists
+    try:
+        post = Post.objects.get(pk=post_id)
+    except Post.DoesNotExist:
+        return JsonResponse({
+            'error': 'Post not found.'
+        }, status=404)
 
+    # Like a post
+    if request.method == "POST":
+        # Check if already liked
+        if Like.objects.filter(user=request.user, post=post).exists():
+            return JsonResponse({
+                'error': 'You have already liked this post.'
+            }, status=400)
+        
+        # Create new like
+        try:
+            Like.objects.create(user=request.user, post=post)
+            return JsonResponse({
+                'message': 'Post liked successfully.'
+            }, status=200)
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation error.'
+            }, status=500)
+    
+    # Unlike a post
+    elif request.method == "DELETE":
+        # Check if like exists
+        like = Like.objects.filter(user=request.user, post=post)
+        if not like.exists():
+            return JsonResponse({
+                'error': 'You have not liked this post.'
+            }, status=400)
+        
+        # Remove like
+        try:
+            like.delete()
+            return JsonResponse({
+                'message': 'Post unliked successfully.'
+            }, status=200)
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation error.'
+            }, status=500)
+    
+    # Invalid method
+    return JsonResponse({
+        'error': 'Only accept POST and DELETE methods.'
+    }, status=405)
+        
 
 def user_detail(request, username):
     # Get user detail
@@ -311,6 +368,6 @@ def user_detail(request, username):
         'error': 'Only accept GET methods.'
     }, status=405)
 
-
+  
 def user_following(request, username):
     pass
