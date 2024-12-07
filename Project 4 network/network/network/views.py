@@ -368,6 +368,6 @@ def user_detail(request, username):
         'error': 'Only accept GET methods.'
     }, status=405)
 
-
+  
 def user_following(request, username):
     pass
