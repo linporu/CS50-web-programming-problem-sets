@@ -89,12 +89,12 @@ class Post(models.Model):
 
 
 class Following(models.Model):
-    user = models.ForeignKey(
+    follower = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name="following"
     )
-    follower = models.ForeignKey(
+    following = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name="followers"
@@ -102,7 +102,7 @@ class Following(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ['user', 'follower']
+        unique_together = ['follower', 'following']
 
 
 class Like(models.Model):
