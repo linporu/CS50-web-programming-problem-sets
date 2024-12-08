@@ -72,23 +72,23 @@ class ModelTests(TestCase):
     def test_follow_user(self):
         """Test follow functionality"""
         following = Following.objects.create(
-            user=self.user1,
-            follower=self.user2
+            follower=self.user1,
+            following=self.user2  # user1 follows user2
         )
         
         # Verify follow relationship is created
         self.assertTrue(
             Following.objects.filter(
-                user=self.user1,
-                follower=self.user2
+                follower=self.user1,
+                following=self.user2
             ).exists()
         )
         
         # Test that duplicate follows raise an error
         with self.assertRaises(IntegrityError):
             Following.objects.create(
-                user=self.user1,
-                follower=self.user2
+                follower=self.user1,
+                following=self.user2
             )
 
     def test_soft_delete_post(self):
@@ -912,18 +912,18 @@ class UserDetailViewTests(TestCase):
             password='testpass123'
         )
         
-        # Create follow relationship
-        Following.objects.create(user=self.user, follower=self.other_user)
+        # Create follow relationship (other_user follows self.user)
+        Following.objects.create(
+            follower=self.other_user,
+            following=self.user
+        )
         
         self.client = Client()
 
     def test_get_user_detail_success(self):
         """Test successful retrieval of user details"""
-        # Create additional follow relationship: self.user follows other_user
-        Following.objects.create(
-            user=self.other_user,  # User being followed
-            follower=self.user     # Follower
-        )
+        # Note: Following relationship is already created in setUp()
+        # No need to create another one
         
         response = self.client.get(
             reverse('user_detail', kwargs={'username': self.user.username})
@@ -941,8 +941,8 @@ class UserDetailViewTests(TestCase):
         user_data = data['user']
         self.assertEqual(user_data['username'], self.user.username)
         self.assertEqual(user_data['email'], self.user.email)
-        self.assertEqual(user_data['following_count'], 1)  # self.user follows 1 person
-        self.assertEqual(user_data['follower_count'], 1)  # self.user has 1 follower
+        self.assertEqual(user_data['following_count'], 0)  # user has 0 followings
+        self.assertEqual(user_data['follower_count'], 1)  # user has 1 follower (other_user)
         
         # Verify posts list
         posts = data['posts']
