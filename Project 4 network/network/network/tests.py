@@ -10,6 +10,7 @@ import json
 from django.db import models
 from django.db.utils import DatabaseError
 from unittest.mock import patch
+from django.core.exceptions import ValidationError
 
 User = get_user_model()
 
@@ -1418,6 +1419,140 @@ class FollowViewTests(TestCase):
             reverse('follow', kwargs={'username': 'testuser2'}),
             content_type='application/json'
         )
+        
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertEqual(
+            data['error'],
+            'Database operation error, please try again later.'
+        )
+
+class PostsFollowingViewTests(TestCase):
+    def setUp(self):
+        # Create test users
+        self.user1 = User.objects.create_user(
+            username='testuser1',
+            password='testpass123'
+        )
+        self.user2 = User.objects.create_user(
+            username='testuser2',
+            password='testpass123'
+        )
+        self.user3 = User.objects.create_user(
+            username='testuser3',
+            password='testpass123'
+        )
+        
+        # Create test posts
+        self.post1 = Post.objects.create(
+            content='Test post 1 by user2',
+            created_by=self.user2
+        )
+        self.post2 = Post.objects.create(
+            content='Test post 2 by user2',
+            created_by=self.user2,
+            is_deleted=True  # Deleted post
+        )
+        self.post3 = Post.objects.create(
+            content='Test post by user3',
+            created_by=self.user3
+        )
+        
+        # Create following relationships
+        Following.objects.create(
+            follower=self.user1,
+            following=self.user2
+        )
+        
+        self.client = Client()
+
+    def test_get_following_posts_success(self):
+        """Test successful retrieval of following posts"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        response = self.client.get(reverse('posts_following'))
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        
+        # Verify response format
+        self.assertEqual(data['message'], 'Get following posts successfully.')
+        self.assertIn('posts', data)
+        
+        # Should only get non-deleted posts from followed users
+        posts = data['posts']
+        self.assertEqual(len(posts), 1)
+        self.assertEqual(posts[0]['content'], 'Test post 1 by user2')
+
+    def test_get_following_posts_unauthenticated(self):
+        """Test getting following posts when user is not logged in"""
+        response = self.client.get(reverse('posts_following'))
+        
+        self.assertEqual(response.status_code, 401)
+        data = json.loads(response.content)
+        self.assertEqual(
+            data['error'],
+            'You must be logged in to view following posts, follow/unfollow users.'
+        )
+
+    def test_get_following_posts_no_following(self):
+        """Test getting following posts when user follows no one"""
+        # Create new user with no followings
+        user4 = User.objects.create_user(
+            username='testuser4',
+            password='testpass123'
+        )
+        self.client.login(username='testuser4', password='testpass123')
+        
+        response = self.client.get(reverse('posts_following'))
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(len(data['posts']), 0)
+
+    def test_get_following_posts_ordering(self):
+        """Test that following posts are ordered by creation time"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        # Create newer post by followed user
+        newer_post = Post.objects.create(
+            content='Newer post by user2',
+            created_by=self.user2,
+            created_at=timezone.now() + timedelta(hours=1)
+        )
+        
+        response = self.client.get(reverse('posts_following'))
+        
+        data = json.loads(response.content)
+        posts = data['posts']
+        
+        self.assertEqual(len(posts), 2)
+        self.assertEqual(posts[0]['content'], 'Newer post by user2')
+        self.assertEqual(posts[1]['content'], 'Test post 1 by user2')
+
+    def test_invalid_http_method(self):
+        """Test invalid HTTP methods"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        invalid_methods = ['POST', 'PUT', 'PATCH', 'DELETE']
+        
+        for method in invalid_methods:
+            response = getattr(self.client, method.lower())(
+                reverse('posts_following'),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Only accept GET method.')
+
+    @patch('network.models.Following.objects.filter')
+    def test_database_error_handling(self, mock_filter):
+        """Test handling of DatabaseError"""
+        self.client.login(username='testuser1', password='testpass123')
+        mock_filter.side_effect = DatabaseError("Database error")
+        
+        response = self.client.get(reverse('posts_following'))
         
         self.assertEqual(response.status_code, 500)
         data = json.loads(response.content)
