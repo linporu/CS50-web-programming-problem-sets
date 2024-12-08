@@ -262,6 +262,9 @@ def post_detail(request, post_id):
         return JsonResponse({"error": "Only accept GET, PATCH and DELETE methods."}, status=400)
 
 
+
+
+
 def like(request, post_id):
     
     # Check if user is authenticated for both POST and DELETE
@@ -368,6 +371,131 @@ def user_detail(request, username):
         'error': 'Only accept GET methods.'
     }, status=405)
 
-  
-def user_following(request, username):
-    pass
+
+def follow(request, username):
+
+    user = request.user
+
+    # Check if user is authenticated
+    if not user.is_authenticated:
+        return JsonResponse({
+            'error': 'You must be logged in to view following posts, follow/unfollow users.'
+        }, status=401)
+    
+    # Check if target user exists
+    try:
+        target_user = User.objects.get(username=username)
+    except User.DoesNotExist:
+        return JsonResponse({
+            'error': 'User not found.'
+        }, status=404)
+    
+    # Check if user and target user are the same one
+    if user == target_user:
+        return JsonResponse({
+            'error': 'You can not follow/unfollow yourself.'
+        }, status=403)
+
+    # Follow target user
+    if request.method == "POST":
+
+        # Check if already following
+        if Following.objects.filter(follower=user, following=target_user).exists():
+            return JsonResponse({
+                'error': 'You are already following this user.'
+            }, status=400)
+
+        try:
+            with transaction.atomic():
+                Following.objects.create(
+                    follower=user,
+                    following=target_user
+                )
+            
+            return JsonResponse({
+                'message': 'Follow user successfully.',
+                'data': {
+                    'following_count': user.following_count,
+                    'target_user_followers': target_user.follower_count
+                }
+            }, status=200)
+
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
+
+    # Unfollow other user
+    elif request.method == "DELETE":
+        try:
+            with transaction.atomic():
+                following = Following.objects.filter(
+                    follower=user,
+                    following=target_user
+                )
+                
+                if not following.exists():
+                    return JsonResponse({
+                        'error': 'You are not following this user.'
+                    }, status=400)
+                    
+                following.delete()
+
+            return JsonResponse({
+                'message': 'Unfollow user successfully.',
+                'data': {
+                    'following_count': user.following_count,
+                    'target_user_followers': target_user.follower_count
+                }
+            }, status=200)
+
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
+
+    # Not POST or DELETE method
+    else:
+        return JsonResponse({"error": "Only accept POST and DELETE method."}, status=400)
+    
+
+def posts_following(request):
+    user = request.user
+
+    # Check if user is authenticated
+    if not user.is_authenticated:
+        return JsonResponse({
+            'error': 'You must be logged in to view following posts, follow/unfollow users.'
+        }, status=401)
+
+    # Get following posts
+    if request.method == "GET":
+        try:
+            following_users = Following.objects.filter(
+                follower=user
+            ).values_list('following', flat=True)
+
+            posts = Post.objects.select_related(
+                'created_by'
+            ).prefetch_related(
+                'likes', 
+                'comments'
+            ).filter(
+                created_by__in=following_users,
+                is_deleted=False
+            ).order_by("-created_at")
+
+            return JsonResponse({
+                'message': 'Get following posts successfully.',
+                'posts': [post.serialize() for post in posts]
+            }, status=200)
+        
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
+
+    # Not GET method
+    else:
+        return JsonResponse({"error": "Only accept GET method."}, status=400)
+    

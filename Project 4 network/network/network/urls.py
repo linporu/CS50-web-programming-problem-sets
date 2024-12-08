@@ -12,8 +12,9 @@ urlpatterns = [
     path("api/posts", views.posts, name="posts"),
     path("api/posts/<int:post_id>", views.post_detail, name="post"),
     path("api/posts/<int:post_id>/like", views.like, name="like"),
+    path("api/posts/following", views.posts_following, name="posts_following"),
 
     # Users API
     path("api/users/<str:username>", views.user_detail, name="user_detail"),
-    path("api/users/<str:username>/following", views.user_following, name="user_following"),
+    path("api/users/<str:username>/follow", views.follow, name="follow"),
 ]
