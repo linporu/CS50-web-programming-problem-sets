@@ -460,4 +460,42 @@ def follow(request, username):
     
 
 def posts_following(request):
-    pass
+    user = request.user
+
+    # Check if user is authenticated
+    if not user.is_authenticated:
+        return JsonResponse({
+            'error': 'You must be logged in to view following posts, follow/unfollow users.'
+        }, status=401)
+
+    # Get following posts
+    if request.method == "GET":
+        try:
+            following_users = Following.objects.filter(
+                follower=user
+            ).values_list('following', flat=True)
+
+            posts = Post.objects.select_related(
+                'created_by'
+            ).prefetch_related(
+                'likes', 
+                'comments'
+            ).filter(
+                created_by__in=following_users,
+                is_deleted=False
+            ).order_by("-created_at")
+
+            return JsonResponse({
+                'message': 'Get following posts successfully.',
+                'posts': [post.serialize() for post in posts]
+            }, status=200)
+        
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
+
+    # Not GET method
+    else:
+        return JsonResponse({"error": "Only accept GET method."}, status=400)
+    
