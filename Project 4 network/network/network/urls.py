@@ -16,7 +16,7 @@ urlpatterns = [
     path("api/posts/<int:post_id>/comments", views.comments, name="comments"),
     
     # Comment API
-    path("api/comment/<int:comment_id>", views.comment_detail, name="comment"),
+    path("api/comment/<int:comment_id>", views.comment_detail, name="comment_detail"),
 
     # Users API
     path("api/users/<str:username>", views.user_detail, name="user_detail"),

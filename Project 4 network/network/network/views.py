@@ -645,4 +645,58 @@ def comments(request, post_id):
     
 
 def comment_detail(request, comment_id):
-    pass
+    # Edit comment
+    if request.method == "PATCH":
+        try:
+            data = json.loads(request.body)
+            comment = Comment.objects.get(pk=comment_id)
+
+            # Check if the logged-in user is the comment author
+            if comment.created_by != request.user:
+                return JsonResponse({
+                    'error': 'You can only edit your own comments.'
+                }, status=403)
+
+            # Validate content
+            content = data.get("content", "").strip()
+            if not content:
+                return JsonResponse({
+                    'error': 'Comment content can not be blank.'
+                }, status=400)
+            
+            # Save comment content
+            with transaction.atomic():
+                comment.content = content
+                comment.save()
+
+            return JsonResponse({
+                'message': 'Comment updated successfully.',
+                'comment': comment.serialize()  # Return updated comment
+            }, status=200)
+        
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'error': 'Invalid JSON data.'
+            }, status=400)
+        except Comment.DoesNotExist:
+            return JsonResponse({
+                'error': 'Comment not found.'
+            }, status=404)
+        except IntegrityError:
+            return JsonResponse({
+                'error': 'Data integrity error, please check your input.'
+            }, status=400)
+        except ValidationError as e:
+            return JsonResponse({
+                'error': f'Validation error: {str(e).strip("[]\'")}'
+            }, status=400)
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)
+
+    
