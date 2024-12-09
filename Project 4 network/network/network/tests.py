@@ -2547,3 +2547,96 @@ class CommentDetailViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Only accept PATCH and DELETE methods.')
+
+    def test_delete_comment_successful(self):
+        """Test successful comment deletion"""
+        self.client.login(username='testuser1', password='testpass123')
+        comment = Comment.objects.create(
+            created_by=self.user1,
+            post=self.post,
+            content='Test comment'
+        )
+        
+        response = self.client.delete(
+            reverse('comment_detail', kwargs={'comment_id': comment.id})
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data['message'], 'Comment deleted successfully.')
+        
+        # Verify comment was soft deleted
+        comment.refresh_from_db()
+        self.assertTrue(comment.is_deleted)
+
+    def test_delete_comment_unauthorized(self):
+        """Test deleting comment by unauthorized user"""
+        self.client.login(username='testuser2', password='testpass123')
+        comment = Comment.objects.create(
+            created_by=self.user1,
+            post=self.post,
+            content='Test comment'
+        )
+        
+        response = self.client.delete(
+            reverse('comment_detail', kwargs={'comment_id': comment.id})
+        )
+        
+        self.assertEqual(response.status_code, 403)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'You can only delete your own comments.')
+
+    def test_delete_nonexistent_comment(self):
+        """Test deleting non-existent comment"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        response = self.client.delete(
+            reverse('comment_detail', kwargs={'comment_id': 99999})
+        )
+        
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Comment not found.')
+
+    def test_delete_comment_database_error(self):
+        """Test handling DatabaseError during comment deletion"""
+        self.client.login(username='testuser1', password='testpass123')
+        comment = Comment.objects.create(
+            created_by=self.user1,
+            post=self.post,
+            content='Test comment'
+        )
+        
+        with patch('network.models.Comment.save') as mock_save:
+            mock_save.side_effect = DatabaseError()
+            
+            response = self.client.delete(
+                reverse('comment_detail', kwargs={'comment_id': comment.id})
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(
+                data['error'],
+                'Database operation error, please try again later.'
+            )
+
+    def test_delete_comment_general_exception(self):
+        """Test handling general Exception during comment deletion"""
+        self.client.login(username='testuser1', password='testpass123')
+        comment = Comment.objects.create(
+            created_by=self.user1,
+            post=self.post,
+            content='Test comment'
+        )
+        
+        with patch('network.models.Comment.save') as mock_save:
+            mock_save.side_effect = Exception('Unexpected error')
+            
+            response = self.client.delete(
+                reverse('comment_detail', kwargs={'comment_id': comment.id})
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
