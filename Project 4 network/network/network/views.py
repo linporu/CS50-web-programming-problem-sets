@@ -699,4 +699,41 @@ def comment_detail(request, comment_id):
                 'error': str(e)
             }, status=500)
 
+    # Soft delete comment
+    elif request.method == "DELETE":
+       
+        try:
+            comment = Comment.objects.get(pk=comment_id)
+
+            # Check if the logged-in user is the comment author
+            if comment.created_by != request.user:
+                return JsonResponse({
+                    'error': 'You can only delete your own comments.'
+                }, status=403)
+            
+            # Save comment deletion state
+            with transaction.atomic():
+                comment.is_deleted = True
+                comment.save()
+
+            return JsonResponse({
+                'message': 'Comment deleted successfully.',
+                    'comment': comment.serialize()  # Return updated comment
+            }, status=200)
+        
+        except Comment.DoesNotExist:
+            return JsonResponse({
+                'error': 'Comment not found.'
+            }, status=404)
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)
     
+    # Not PATCH or DELETE request
+    else:
+        return JsonResponse({"error": "Only accept PATCH and DELETE methods."}, status=400)
