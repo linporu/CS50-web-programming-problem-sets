@@ -76,42 +76,48 @@ def posts(request):
                 'error': 'You must be logged in to post.'
             }, status=401)
         
+        # Check if JSON data valid
         try:
             data = json.loads(request.body)
-            
-            if not data.get('content'):
-                return JsonResponse({
-                    'error': 'Post content cannot be empty.'
-                }, status=400)
-            
-            # Create new post in database
-            try:
-                Post.objects.create(
-                    content=data.get('content'),
-                    created_by=request.user
-                )
-                
-                return JsonResponse({
-                    'message': 'Post created successfully.'
-                }, status=200)
-            
-            except IntegrityError:
-                return JsonResponse({
-                    'error': 'Data integrity error, please check your input.'
-                }, status=400)
-            except ValidationError as e:
-                return JsonResponse({
-                    'error': f'Validation error: {str(e)}'
-                }, status=400)
-            except DatabaseError:
-                return JsonResponse({
-                    'error': 'Database operation error, please try again later.'
-                }, status=500)
-            
         except json.JSONDecodeError:
             return JsonResponse({
                 'error': 'Invalid JSON data.'
             }, status=400)
+
+        # Check if content exist    
+        if not data.get('content'):
+            return JsonResponse({
+                'error': 'Post content cannot be empty.'
+            }, status=400)
+        
+        # Create new post in database
+        try:
+            Post.objects.create(
+                content=data.get('content'),
+                created_by=request.user
+            )
+            
+            return JsonResponse({
+                'message': 'Post created successfully.'
+            }, status=200)
+        
+        except IntegrityError:
+            return JsonResponse({
+                'error': 'Data integrity error, please check your input.'
+            }, status=400)
+        except ValidationError as e:
+            return JsonResponse({
+                'error': f'Validation error: {str(e)}'
+            }, status=400)
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)
+        
     
     # Get posts
     elif request.method == "GET":
@@ -189,13 +195,7 @@ def post_detail(request, post_id):
 
         try:
             data = json.loads(request.body)
-            
-            try:
-                post = Post.objects.get(pk=post_id)
-            except Post.DoesNotExist:
-                return JsonResponse({
-                    'error': 'Post not found.'
-                }, status=404)
+            post = Post.objects.get(pk=post_id)
 
             # Check if the logged-in user is the post author
             if post.created_by != request.user:
@@ -219,15 +219,32 @@ def post_detail(request, post_id):
                 'message': 'Post updated successfully.',
                 'post': post.serialize()  # Return updated post
             }, status=200)
-
+        
         except json.JSONDecodeError:
             return JsonResponse({
                 'error': 'Invalid JSON data.'
             }, status=400)
+        except Post.DoesNotExist:
+            return JsonResponse({
+                'error': 'Post not found.'
+            }, status=404)
+        except IntegrityError:
+            return JsonResponse({
+                'error': 'Data integrity error, please check your input.'
+            }, status=400)
+        except ValidationError as e:
+            return JsonResponse({
+                'error': f'Validation error: {str(e)}'
+            }, status=400)
         except DatabaseError:
             return JsonResponse({
-                'error': 'Database operation failed.'
+                'error': 'Database operation error, please try again later.'
             }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)
+
         
     # Soft delete post
     elif request.method == "DELETE":

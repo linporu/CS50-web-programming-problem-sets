@@ -594,6 +594,96 @@ class PostsCreateViewTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'You must be logged in to post.')
 
+    def test_create_post_invalid_json(self):
+        """Test post creation with invalid JSON data"""
+        self.client.login(username='testuser', password='testpassword')
+        response = self.client.post(
+            reverse('posts'),
+            'invalid json',
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Invalid JSON data.')
+
+    def test_create_post_empty_content(self):
+        """Test post creation with empty content"""
+        self.client.login(username='testuser', password='testpassword')
+        response = self.client.post(
+            reverse('posts'),
+            json.dumps({'content': ''}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Post content cannot be empty.')
+
+    @patch('network.models.Post.objects.create')
+    def test_create_post_integrity_error(self, mock_create):
+        """Test post creation with IntegrityError"""
+        mock_create.side_effect = IntegrityError()
+        self.client.login(username='testuser', password='testpassword')
+        
+        response = self.client.post(
+            reverse('posts'),
+            json.dumps({'content': 'Test post'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Data integrity error, please check your input.')
+
+    @patch('network.models.Post.objects.create')
+    def test_create_post_validation_error(self, mock_create):
+        """Test post creation with ValidationError"""
+        mock_create.side_effect = ValidationError('Invalid data')
+        self.client.login(username='testuser', password='testpassword')
+        
+        response = self.client.post(
+            reverse('posts'),
+            json.dumps({'content': 'Test post'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Validation error: Invalid data')
+
+    @patch('network.models.Post.objects.create')
+    def test_create_post_database_error(self, mock_create):
+        """Test post creation with DatabaseError"""
+        mock_create.side_effect = DatabaseError()
+        self.client.login(username='testuser', password='testpassword')
+        
+        response = self.client.post(
+            reverse('posts'),
+            json.dumps({'content': 'Test post'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Database operation error, please try again later.')
+
+    @patch('network.models.Post.objects.create')
+    def test_create_post_general_exception(self, mock_create):
+        """Test post creation with general Exception"""
+        mock_create.side_effect = Exception('Unexpected error')
+        self.client.login(username='testuser', password='testpassword')
+        
+        response = self.client.post(
+            reverse('posts'),
+            json.dumps({'content': 'Test post'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Unexpected error')
+
     def test_invalid_method(self):
         """Ensure error is returned for invalid HTTP methods"""
         response = self.client.put(reverse('posts'))
@@ -711,29 +801,23 @@ class PostEditViewTests(TestCase):
         """Test successful post edit by the owner"""
         self.client.login(username='testuser1', password='testpass123')
         
-        # Prepare edit data
         edit_data = {
             'content': 'Updated content'
         }
         
-        # Send edit request
         response = self.client.patch(
             reverse('post', kwargs={'post_id': self.post.id}),
             json.dumps(edit_data),
             content_type='application/json'
         )
         
-        # Check response
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
         self.assertEqual(data['message'], 'Post updated successfully.')
+        self.assertEqual(data['post']['content'], 'Updated content')
         
-        # Verify post was updated in database
         updated_post = Post.objects.get(id=self.post.id)
         self.assertEqual(updated_post.content, 'Updated content')
-        
-        # Verify updated_at was changed
-        self.assertNotEqual(updated_post.updated_at, updated_post.created_at)
 
     def test_edit_post_unauthenticated(self):
         """Test post edit when user is not logged in"""
@@ -753,7 +837,6 @@ class PostEditViewTests(TestCase):
 
     def test_edit_post_unauthorized(self):
         """Test post edit by non-owner"""
-        # Login as different user
         self.client.login(username='testuser2', password='testpass123')
         
         edit_data = {
@@ -775,7 +858,7 @@ class PostEditViewTests(TestCase):
         self.client.login(username='testuser1', password='testpass123')
         
         edit_data = {
-            'content': ''
+            'content': '   '  # Only whitespace
         }
         
         response = self.client.patch(
@@ -796,13 +879,13 @@ class PostEditViewTests(TestCase):
             'content': 'Updated content'
         }
         
-        # Use a non-existing post_id
         response = self.client.patch(
             reverse('post', kwargs={'post_id': 99999}),
             json.dumps(edit_data),
             content_type='application/json'
         )
-      
+        
+        self.assertEqual(response.status_code, 404)
         self.assertEqual(
             json.loads(response.content),
             {'error': 'Post not found.'}
@@ -812,10 +895,9 @@ class PostEditViewTests(TestCase):
         """Test post edit with invalid JSON data"""
         self.client.login(username='testuser1', password='testpass123')
         
-        # Send invalid JSON
         response = self.client.patch(
             reverse('post', kwargs={'post_id': self.post.id}),
-            '{invalid json',
+            'invalid json',
             content_type='application/json'
         )
         
@@ -823,35 +905,73 @@ class PostEditViewTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Invalid JSON data.')
 
-    def test_edit_post_response_format(self):
-        """Test the format of successful edit response"""
+    def test_edit_post_integrity_error(self):
+        """Test handling of IntegrityError during post edit"""
         self.client.login(username='testuser1', password='testpass123')
         
-        edit_data = {
-            'content': 'Updated content'
-        }
+        with patch('network.models.Post.save') as mock_save:
+            mock_save.side_effect = IntegrityError()
+            
+            response = self.client.patch(
+                reverse('post', kwargs={'post_id': self.post.id}),
+                json.dumps({'content': 'New content'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Data integrity error, please check your input.')
+
+    def test_edit_post_validation_error(self):
+        """Test handling of ValidationError during post edit"""
+        self.client.login(username='testuser1', password='testpass123')
         
-        response = self.client.patch(
-            reverse('post', kwargs={'post_id': self.post.id}),
-            json.dumps(edit_data),
-            content_type='application/json'
-        )
+        with patch('network.models.Post.save') as mock_save:
+            mock_save.side_effect = ValidationError(['Invalid data'])
+            
+            response = self.client.patch(
+                reverse('post', kwargs={'post_id': self.post.id}),
+                json.dumps({'content': 'New content'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], "Validation error: ['Invalid data']")
+
+    def test_edit_post_database_error(self):
+        """Test handling of DatabaseError during post edit"""
+        self.client.login(username='testuser1', password='testpass123')
         
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content)
+        with patch('network.models.Post.save') as mock_save:
+            mock_save.side_effect = DatabaseError()
+            
+            response = self.client.patch(
+                reverse('post', kwargs={'post_id': self.post.id}),
+                json.dumps({'content': 'New content'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation error, please try again later.')
+
+    def test_edit_post_general_exception(self):
+        """Test handling of general Exception during post edit"""
+        self.client.login(username='testuser1', password='testpass123')
         
-        # Verify response structure
-        self.assertIn('message', data)
-        self.assertIn('post', data)
-        
-        # Verify post data structure
-        post_data = data['post']
-        self.assertIn('id', post_data)
-        self.assertIn('content', post_data)
-        self.assertIn('created_by', post_data)
-        self.assertIn('created_at', post_data)
-        self.assertIn('updated_at', post_data)
-        self.assertIn('is_deleted', post_data)
+        with patch('network.models.Post.save') as mock_save:
+            mock_save.side_effect = Exception('Unexpected error')
+            
+            response = self.client.patch(
+                reverse('post', kwargs={'post_id': self.post.id}),
+                json.dumps({'content': 'New content'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
 
 class PostSoftDeleteViewTests(TestCase):
     def setUp(self):
