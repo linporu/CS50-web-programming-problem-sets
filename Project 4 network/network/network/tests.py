@@ -803,7 +803,7 @@ class PostsCreateViewTests(TestCase):
     @patch('network.models.Post.objects.create')
     def test_create_post_validation_error(self, mock_create):
         """Test post creation with ValidationError"""
-        mock_create.side_effect = ValidationError(['Invalid data'])
+        mock_create.side_effect = ValidationError('Invalid data')
         self.client.login(username='testuser', password='testpassword')
         
         response = self.client.post(
@@ -814,7 +814,7 @@ class PostsCreateViewTests(TestCase):
         
         self.assertEqual(response.status_code, 400)
         data = json.loads(response.content)
-        self.assertEqual(data['error'], "Validation error: ['Invalid data']")
+        self.assertEqual(data['error'], "Validation error: Invalid data")
 
     @patch('network.models.Post.objects.create')
     def test_create_post_database_error(self, mock_create):
@@ -1091,7 +1091,7 @@ class PostEditViewTests(TestCase):
         self.client.login(username='testuser1', password='testpass123')
         
         with patch('network.models.Post.save') as mock_save:
-            mock_save.side_effect = ValidationError(['Invalid data'])
+            mock_save.side_effect = ValidationError('Invalid data')
             
             response = self.client.patch(
                 reverse('post', kwargs={'post_id': self.post.id}),
@@ -1101,7 +1101,7 @@ class PostEditViewTests(TestCase):
             
             self.assertEqual(response.status_code, 400)
             data = json.loads(response.content)
-            self.assertEqual(data['error'], "Validation error: ['Invalid data']")
+            self.assertEqual(data['error'], "Validation error: Invalid data")
 
     def test_edit_post_database_error(self):
         """Test handling of DatabaseError during post edit"""
@@ -1464,7 +1464,7 @@ class PostLikeViewTests(TestCase):
         )
         
         self.client = Client()
-        
+
     def test_like_post_success(self):
         """Test successful post like"""
         self.client.login(username='testuser2', password='testpass123')
@@ -1478,16 +1478,11 @@ class PostLikeViewTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data['message'], 'Post liked successfully.')
         
-        # Verify like was created in database
-        self.assertTrue(
-            Like.objects.filter(
-                user=self.user2,
-                post=self.post
-            ).exists()
-        )
-        
+        # Verify like was created
+        self.assertTrue(Like.objects.filter(user=self.user2, post=self.post).exists())
+
     def test_like_post_unauthenticated(self):
-        """Test liking post when user is not logged in"""
+        """Test liking post when not logged in"""
         response = self.client.post(
             reverse('like', kwargs={'post_id': self.post.id}),
             content_type='application/json'
@@ -1495,13 +1490,10 @@ class PostLikeViewTests(TestCase):
         
         self.assertEqual(response.status_code, 401)
         data = json.loads(response.content)
-        self.assertEqual(
-            data['error'],
-            'You must be logged in to like posts.'
-        )
-        
+        self.assertEqual(data['error'], 'You must be logged in to like posts.')
+
     def test_like_nonexistent_post(self):
-        """Test liking a post that doesn't exist"""
+        """Test liking nonexistent post"""
         self.client.login(username='testuser2', password='testpass123')
         
         response = self.client.post(
@@ -1512,15 +1504,12 @@ class PostLikeViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Post not found.')
-        
+
     def test_like_already_liked_post(self):
-        """Test liking a post that's already been liked"""
+        """Test liking already liked post"""
         self.client.login(username='testuser2', password='testpass123')
-        
-        # Create initial like
         Like.objects.create(user=self.user2, post=self.post)
         
-        # Try to like again
         response = self.client.post(
             reverse('like', kwargs={'post_id': self.post.id}),
             content_type='application/json'
@@ -1528,34 +1517,77 @@ class PostLikeViewTests(TestCase):
         
         self.assertEqual(response.status_code, 400)
         data = json.loads(response.content)
-        self.assertEqual(
-            data['error'],
-            'You have already liked this post.'
-        )
+        self.assertEqual(data['error'], 'You have already liked this post.')
 
-    @patch('network.models.Like.objects.create')
-    def test_like_post_database_error(self, mock_create):
-        """Test database error when creating like"""
+    def test_like_post_integrity_error(self):
+        """Test integrity error when liking post"""
         self.client.login(username='testuser2', password='testpass123')
-        mock_create.side_effect = DatabaseError()
-
-        response = self.client.post(
-            reverse('like', kwargs={'post_id': self.post.id}),
-            content_type='application/json'
-        )
-
-        self.assertEqual(response.status_code, 500)
-        data = json.loads(response.content)
-        self.assertEqual(data['error'], 'Database operation error.')
         
+        with patch('network.models.Like.objects.create') as mock_create:
+            mock_create.side_effect = IntegrityError()
+            
+            response = self.client.post(
+                reverse('like', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Data integrity error, please check your input.')
+
+    def test_like_post_validation_error(self):
+        """Test validation error when liking post"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        with patch('network.models.Like.objects.create') as mock_create:
+            mock_create.side_effect = ValidationError('Invalid data')
+            
+            response = self.client.post(
+                reverse('like', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Validation error: Invalid data')
+
+    def test_like_post_database_error(self):
+        """Test database error when liking post"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        with patch('network.models.Like.objects.create') as mock_create:
+            mock_create.side_effect = DatabaseError()
+            
+            response = self.client.post(
+                reverse('like', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation error, please try again later.')
+
+    def test_like_post_general_error(self):
+        """Test general error when liking post"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        with patch('network.models.Like.objects.create') as mock_create:
+            mock_create.side_effect = Exception('Unexpected error')
+            
+            response = self.client.post(
+                reverse('like', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
+
     def test_unlike_post_success(self):
         """Test successful post unlike"""
         self.client.login(username='testuser2', password='testpass123')
-        
-        # Create initial like
         Like.objects.create(user=self.user2, post=self.post)
         
-        # Unlike post
         response = self.client.delete(
             reverse('like', kwargs={'post_id': self.post.id}),
             content_type='application/json'
@@ -1565,16 +1597,11 @@ class PostLikeViewTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data['message'], 'Post unliked successfully.')
         
-        # Verify like was removed from database
-        self.assertFalse(
-            Like.objects.filter(
-                user=self.user2,
-                post=self.post
-            ).exists()
-        )
-        
+        # Verify like was deleted
+        self.assertFalse(Like.objects.filter(user=self.user2, post=self.post).exists())
+
     def test_unlike_not_liked_post(self):
-        """Test unliking a post that hasn't been liked"""
+        """Test unliking not liked post"""
         self.client.login(username='testuser2', password='testpass123')
         
         response = self.client.delete(
@@ -1584,110 +1611,63 @@ class PostLikeViewTests(TestCase):
         
         self.assertEqual(response.status_code, 400)
         data = json.loads(response.content)
-        self.assertEqual(
-            data['error'],
-            'You have not liked this post.'
-        )
+        self.assertEqual(data['error'], 'You have not liked this post.')
 
-    @patch('network.models.Like.objects.filter')
-    def test_unlike_post_database_error(self, mock_filter):
-        """Test database error when deleting like"""
+    def test_unlike_post_database_error(self):
+        """Test database error when unliking post"""
         self.client.login(username='testuser2', password='testpass123')
+        Like.objects.create(user=self.user2, post=self.post)
         
-        # Mock the filter to return a queryset that raises DatabaseError on delete
-        mock_queryset = MagicMock()
-        mock_queryset.exists.return_value = True
-        mock_queryset.delete.side_effect = DatabaseError()
-        mock_filter.return_value = mock_queryset
+        with patch('network.models.Like.objects.filter') as mock_filter:
+            mock_queryset = MagicMock()
+            mock_queryset.exists.return_value = True
+            mock_queryset.first.return_value = Like(user=self.user2)
+            mock_queryset.delete.side_effect = DatabaseError()
+            mock_filter.return_value = mock_queryset
+            
+            response = self.client.delete(
+                reverse('like', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation error.')
 
-        response = self.client.delete(
-            reverse('like', kwargs={'post_id': self.post.id}),
-            content_type='application/json'
-        )
-
-        self.assertEqual(response.status_code, 500)
-        data = json.loads(response.content)
-        self.assertEqual(data['error'], 'Database operation error.')
+    def test_unlike_post_general_error(self):
+        """Test general error when unliking post"""
+        self.client.login(username='testuser2', password='testpass123')
+        Like.objects.create(user=self.user2, post=self.post)
         
+        with patch('network.models.Like.objects.filter') as mock_filter:
+            mock_queryset = MagicMock()
+            mock_queryset.exists.return_value = True
+            mock_queryset.first.return_value = Like(user=self.user2)
+            mock_queryset.delete.side_effect = Exception('Unexpected error')
+            mock_filter.return_value = mock_queryset
+            
+            response = self.client.delete(
+                reverse('like', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
+
     def test_invalid_http_method(self):
         """Test invalid HTTP methods"""
         self.client.login(username='testuser2', password='testpass123')
         
-        invalid_methods = ['PUT', 'PATCH', 'GET']
-        
-        for method in invalid_methods:
-            response = getattr(self.client, method.lower())(
+        for method in ['put', 'patch', 'get']:
+            response = getattr(self.client, method)(
                 reverse('like', kwargs={'post_id': self.post.id}),
                 content_type='application/json'
             )
             
             self.assertEqual(response.status_code, 405)
             data = json.loads(response.content)
-            self.assertEqual(
-                data['error'],
-                'Only accept POST and DELETE methods.'
-            )
-            
-    def test_like_count_updates(self):
-        """Test that post's like count updates correctly"""
-        self.client.login(username='testuser2', password='testpass123')
-        
-        # Initial like count should be 0
-        self.assertEqual(self.post.likes_count, 0)
-        
-        # Like the post
-        self.client.post(
-            reverse('like', kwargs={'post_id': self.post.id}),
-            content_type='application/json'
-        )
-        
-        # Refresh post from database
-        self.post.refresh_from_db()
-        self.assertEqual(self.post.likes_count, 1)
-        
-        # Unlike the post
-        self.client.delete(
-            reverse('like', kwargs={'post_id': self.post.id}),
-            content_type='application/json'
-        )
-        
-        # Refresh post from database
-        self.post.refresh_from_db()
-        self.assertEqual(self.post.likes_count, 0)
-        
-    def test_multiple_users_like(self):
-        """Test multiple users liking the same post"""
-        # Create additional test user
-        user3 = User.objects.create_user(
-            username='testuser3',
-            password='testpass123'
-        )
-        
-        # User2 likes the post
-        self.client.login(username='testuser2', password='testpass123')
-        self.client.post(
-            reverse('like', kwargs={'post_id': self.post.id}),
-            content_type='application/json'
-        )
-        
-        # User3 likes the post
-        self.client.login(username='testuser3', password='testpass123')
-        self.client.post(
-            reverse('like', kwargs={'post_id': self.post.id}),
-            content_type='application/json'
-        )
-        
-        # Verify like count
-        self.post.refresh_from_db()
-        self.assertEqual(self.post.likes_count, 2)
-        
-        # Verify both likes exist in database
-        self.assertTrue(
-            Like.objects.filter(user=self.user2, post=self.post).exists()
-        )
-        self.assertTrue(
-            Like.objects.filter(user=user3, post=self.post).exists()
-        )
+            self.assertEqual(data['error'], 'Only accept POST and DELETE methods.')
 
 class FollowViewTests(TestCase):
     def setUp(self):

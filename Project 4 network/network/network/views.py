@@ -113,7 +113,7 @@ def posts(request):
             }, status=400)
         except ValidationError as e:
             return JsonResponse({
-                'error': f'Validation error: {str(e)}'
+                'error': f'Validation error: {str(e).strip("[]\'")}'
             }, status=400)
         except DatabaseError:
             return JsonResponse({
@@ -240,7 +240,7 @@ def post_detail(request, post_id):
             }, status=400)
         except ValidationError as e:
             return JsonResponse({
-                'error': f'Validation error: {str(e)}'
+                'error': f'Validation error: {str(e).strip("[]\'")}'
             }, status=400)
         except DatabaseError:
             return JsonResponse({
@@ -328,9 +328,22 @@ def like(request, post_id):
             return JsonResponse({
                 'message': 'Post liked successfully.'
             }, status=200)
+        
+        except IntegrityError:
+            return JsonResponse({
+                'error': 'Data integrity error, please check your input.'
+            }, status=400)
+        except ValidationError as e:
+            return JsonResponse({
+                'error': f'Validation error: {str(e).strip("[]\'")}'
+            }, status=400)
         except DatabaseError:
             return JsonResponse({
-                'error': 'Database operation error.'
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
             }, status=500)
     
     # Unlike a post
@@ -351,6 +364,10 @@ def like(request, post_id):
         except DatabaseError:
             return JsonResponse({
                 'error': 'Database operation error.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
             }, status=500)
     
     # Invalid method
