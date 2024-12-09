@@ -8,7 +8,7 @@ from django.urls import reverse
 import json
 from django.db import models
 from django.db.utils import DatabaseError
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from django.core.exceptions import ValidationError
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
@@ -1486,6 +1486,21 @@ class PostLikeViewTests(TestCase):
             data['error'],
             'You have already liked this post.'
         )
+
+    @patch('network.models.Like.objects.create')
+    def test_like_post_database_error(self, mock_create):
+        """Test database error when creating like"""
+        self.client.login(username='testuser2', password='testpass123')
+        mock_create.side_effect = DatabaseError()
+
+        response = self.client.post(
+            reverse('like', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Database operation error.')
         
     def test_unlike_post_success(self):
         """Test successful post unlike"""
@@ -1527,6 +1542,26 @@ class PostLikeViewTests(TestCase):
             data['error'],
             'You have not liked this post.'
         )
+
+    @patch('network.models.Like.objects.filter')
+    def test_unlike_post_database_error(self, mock_filter):
+        """Test database error when deleting like"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        # Mock the filter to return a queryset that raises DatabaseError on delete
+        mock_queryset = MagicMock()
+        mock_queryset.exists.return_value = True
+        mock_queryset.delete.side_effect = DatabaseError()
+        mock_filter.return_value = mock_queryset
+
+        response = self.client.delete(
+            reverse('like', kwargs={'post_id': self.post.id}),
+            content_type='application/json'
+        )
+
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Database operation error.')
         
     def test_invalid_http_method(self):
         """Test invalid HTTP methods"""
