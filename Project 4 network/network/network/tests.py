@@ -1356,7 +1356,7 @@ class UserDetailViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
         
-        # Verify response format
+        # Verify response format and message
         self.assertEqual(data['message'], 'Get user detail successfully.')
         self.assertIn('user', data)
         self.assertIn('posts', data)
@@ -1368,10 +1368,27 @@ class UserDetailViewTests(TestCase):
         self.assertEqual(user_data['following_count'], 0)  # user has 0 followings
         self.assertEqual(user_data['follower_count'], 1)  # user has 1 follower (other_user)
         
-        # Verify posts list
+        # Verify posts data
         posts = data['posts']
-        self.assertEqual(len(posts), 1)  # Should only return non-deleted posts
+        self.assertEqual(len(posts), 1)  # Only active posts
         self.assertEqual(posts[0]['content'], 'Active post')
+
+    def test_get_user_detail_no_posts(self):
+        """Test user detail retrieval for user with no posts"""
+        # Create new user with no posts
+        new_user = User.objects.create_user(
+            username='newuser',
+            password='testpass123',
+            email='new@example.com'
+        )
+        
+        response = self.client.get(
+            reverse('user_detail', kwargs={'username': new_user.username})
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertIsNone(data['posts'])
 
     def test_get_nonexistent_user(self):
         """Test retrieving non-existent user"""
@@ -1396,27 +1413,6 @@ class UserDetailViewTests(TestCase):
             data = json.loads(response.content)
             self.assertEqual(data['error'], 'Only accept GET methods.')
 
-    def test_post_ordering(self):
-        """Test post ordering"""
-        # Create a newer post
-        newer_post = Post.objects.create(
-            content='Newer post',
-            created_by=self.user,
-            created_at=timezone.now() + timedelta(hours=1)
-        )
-        
-        response = self.client.get(
-            reverse('user_detail', kwargs={'username': self.user.username})
-        )
-        
-        data = json.loads(response.content)
-        posts = data['posts']
-        
-        # Verify posts are ordered by descending creation time
-        self.assertEqual(len(posts), 2)
-        self.assertEqual(posts[0]['content'], 'Newer post')
-        self.assertEqual(posts[1]['content'], 'Active post')
-
     def test_database_error_handling(self):
         """Test database error handling"""
         with patch('network.models.User.objects.get') as mock_get:
@@ -1430,20 +1426,38 @@ class UserDetailViewTests(TestCase):
             data = json.loads(response.content)
             self.assertEqual(data['error'], 'Database operation failed.')
 
-    @patch('network.models.User.objects.get')
-    def test_unexpected_error(self, mock_get):
+    def test_unexpected_error_handling(self):
         """Test unexpected error handling"""
-        mock_get.side_effect = ValueError("Unexpected error occurred")
+        with patch('network.models.User.objects.get') as mock_get:
+            mock_get.side_effect = Exception("Unexpected error")
+            
+            response = self.client.get(
+                reverse('user_detail', kwargs={'username': self.user.username})
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error: Unexpected error')
+
+    def test_post_ordering(self):
+        """Test posts are ordered by creation time descending"""
+        # Create posts with different timestamps
+        newer_post = Post.objects.create(
+            content='Newer post',
+            created_by=self.user,
+            created_at=timezone.now() + timedelta(hours=1)
+        )
         
         response = self.client.get(
             reverse('user_detail', kwargs={'username': self.user.username})
         )
         
-        self.assertEqual(response.status_code, 500)
-        self.assertEqual(
-            response.json(), 
-            {'error': 'Unexpected error: Unexpected error occurred'}
-        )
+        data = json.loads(response.content)
+        posts = data['posts']
+        
+        self.assertEqual(len(posts), 2)
+        self.assertEqual(posts[0]['content'], 'Newer post')
+        self.assertEqual(posts[1]['content'], 'Active post')
 
 class PostLikeViewTests(TestCase):
     def setUp(self):

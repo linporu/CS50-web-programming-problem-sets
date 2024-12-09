@@ -400,7 +400,7 @@ def user_detail(request, username):
                     'following_count': user.following_count,
                     'follower_count': user.follower_count,
                 },
-                'posts': [post.serialize() for post in posts],    
+                'posts': [post.serialize() for post in posts] if posts else None,    
             }, status=200)
 
         except User.DoesNotExist:
