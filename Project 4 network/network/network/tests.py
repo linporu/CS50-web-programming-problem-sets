@@ -1171,7 +1171,9 @@ class PostSoftDeleteViewTests(TestCase):
         self.assertEqual(data['message'], 'Post deleted successfully.')
         
         # Verify post is marked as deleted
-        self.assertTrue(Post.objects.get(id=self.post.id).is_deleted)
+        updated_post = Post.objects.get(id=self.post.id)
+        self.assertTrue(updated_post.is_deleted)
+        self.assertEqual(data['post'], updated_post.serialize())
 
     def test_soft_delete_post_unauthenticated(self):
         """Test soft deletion when user is not logged in"""
@@ -1183,6 +1185,9 @@ class PostSoftDeleteViewTests(TestCase):
         self.assertEqual(response.status_code, 401)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'You must be logged in to delete posts.')
+        
+        # Verify post is not deleted
+        self.assertFalse(Post.objects.get(id=self.post.id).is_deleted)
 
     def test_soft_delete_post_unauthorized(self):
         """Test soft deletion by non-owner"""
@@ -1196,6 +1201,9 @@ class PostSoftDeleteViewTests(TestCase):
         self.assertEqual(response.status_code, 403)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'You can only delete your own posts.')
+        
+        # Verify post is not deleted
+        self.assertFalse(Post.objects.get(id=self.post.id).is_deleted)
 
     def test_soft_delete_nonexistent_post(self):
         """Test soft deletion of a post that doesn't exist"""
@@ -1209,6 +1217,44 @@ class PostSoftDeleteViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Post not found.')
+
+    def test_soft_delete_database_error(self):
+        """Test database error during soft deletion"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Post.save') as mock_save:
+            mock_save.side_effect = DatabaseError()
+            
+            response = self.client.delete(
+                reverse('post', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation error, please try again later.')
+            
+            # Verify post is not deleted
+            self.assertFalse(Post.objects.get(id=self.post.id).is_deleted)
+
+    def test_soft_delete_general_exception(self):
+        """Test general exception during soft deletion"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Post.save') as mock_save:
+            mock_save.side_effect = Exception('Unexpected error')
+            
+            response = self.client.delete(
+                reverse('post', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
+            
+            # Verify post is not deleted
+            self.assertFalse(Post.objects.get(id=self.post.id).is_deleted)
 
 class PostMethodTests(TestCase):
     """Test case for handling HTTP methods in post-related views"""

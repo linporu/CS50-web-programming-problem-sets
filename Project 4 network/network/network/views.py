@@ -263,26 +263,35 @@ def post_detail(request, post_id):
         
         try:
             post = Post.objects.get(pk=post_id)
+        
+            # Check if the logged-in user is the post author
+            if post.created_by != request.user:
+                return JsonResponse({
+                    'error': 'You can only delete your own posts.'
+                }, status=403)
+            
+            # Save post deletion state
+            with transaction.atomic():
+                post.is_deleted = True
+                post.save()
+
+            return JsonResponse({
+                'message': 'Post deleted successfully.',
+                    'post': post.serialize()  # Return updated post
+            }, status=200)
+        
         except Post.DoesNotExist:
             return JsonResponse({
                 'error': 'Post not found.'
             }, status=404)
-
-        # Check if the logged-in user is the post author
-        if post.created_by != request.user:
+        except DatabaseError:
             return JsonResponse({
-                'error': 'You can only delete your own posts.'
-            }, status=403)
-        
-        # Save post deletion state
-        with transaction.atomic():
-            post.is_deleted = True
-            post.save()
-
-        return JsonResponse({
-            'message': 'Post deleted successfully.',
-                'post': post.serialize()  # Return updated post
-        }, status=200)
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)
     
     # Not GET, PATCH or DELETE request
     else:
