@@ -5,7 +5,7 @@ from django.db import IntegrityError, DatabaseError, transaction
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from .models import User, Post, Following, Like, Comment
 
 
@@ -42,10 +42,16 @@ def register(request):
     if request.method == "POST":
         username = request.POST["username"]
         email = request.POST["email"]
-
-        # Ensure password matches confirmation
         password = request.POST["password"]
         confirmation = request.POST["confirmation"]
+
+        # Validate required fields
+        if not username or not email or not password or not confirmation:
+            return render(request, "network/register.html", {
+                "message": "All fields are required."
+            })
+
+        # Ensure password matches confirmation
         if password != confirmation:
             return render(request, "network/register.html", {
                 "message": "Passwords must match."
@@ -76,42 +82,48 @@ def posts(request):
                 'error': 'You must be logged in to post.'
             }, status=401)
         
+        # Check if JSON data valid
         try:
             data = json.loads(request.body)
-            
-            if not data.get('content'):
-                return JsonResponse({
-                    'error': 'Post content cannot be empty.'
-                }, status=400)
-            
-            # Create new post in database
-            try:
-                Post.objects.create(
-                    content=data.get('content'),
-                    created_by=request.user
-                )
-                
-                return JsonResponse({
-                    'message': 'Post created successfully.'
-                }, status=200)
-            
-            except IntegrityError:
-                return JsonResponse({
-                    'error': 'Data integrity error, please check your input.'
-                }, status=400)
-            except ValidationError as e:
-                return JsonResponse({
-                    'error': f'Validation error: {str(e)}'
-                }, status=400)
-            except DatabaseError:
-                return JsonResponse({
-                    'error': 'Database operation error, please try again later.'
-                }, status=500)
-            
         except json.JSONDecodeError:
             return JsonResponse({
                 'error': 'Invalid JSON data.'
             }, status=400)
+
+        # Check if content exist    
+        if not data.get('content'):
+            return JsonResponse({
+                'error': 'Post content cannot be empty.'
+            }, status=400)
+        
+        # Create new post in database
+        try:
+            Post.objects.create(
+                content=data.get('content'),
+                created_by=request.user
+            )
+            
+            return JsonResponse({
+                'message': 'Post created successfully.'
+            }, status=200)
+        
+        except IntegrityError:
+            return JsonResponse({
+                'error': 'Data integrity error, please check your input.'
+            }, status=400)
+        except ValidationError as e:
+            return JsonResponse({
+                'error': f'Validation error: {str(e).strip("[]\'")}'
+            }, status=400)
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)
+        
     
     # Get posts
     elif request.method == "GET":
@@ -130,17 +142,17 @@ def posts(request):
                 'posts': [post.serialize() for post in posts]
             }, status=200)
         
-        except IntegrityError:
+        except Post.DoesNotExist:
             return JsonResponse({
-                'error': 'Data integrity error, please check your input.'
-            }, status=400)
-        except ValidationError as e:
-            return JsonResponse({
-                'error': f'Validation error: {str(e)}'
-            }, status=400)
+                'error': 'Posts do not exist.'
+            }, status=404)
         except DatabaseError:
             return JsonResponse({
                 'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
             }, status=500)
 
     # Not GET or POST
@@ -169,6 +181,10 @@ def post_detail(request, post_id):
             return JsonResponse({
                 'error': 'Post not found.'
             }, status=404)
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
         except Exception as e:
             return JsonResponse({
                 'error': str(e)
@@ -185,13 +201,7 @@ def post_detail(request, post_id):
 
         try:
             data = json.loads(request.body)
-            
-            try:
-                post = Post.objects.get(pk=post_id)
-            except Post.DoesNotExist:
-                return JsonResponse({
-                    'error': 'Post not found.'
-                }, status=404)
+            post = Post.objects.get(pk=post_id)
 
             # Check if the logged-in user is the post author
             if post.created_by != request.user:
@@ -215,15 +225,32 @@ def post_detail(request, post_id):
                 'message': 'Post updated successfully.',
                 'post': post.serialize()  # Return updated post
             }, status=200)
-
+        
         except json.JSONDecodeError:
             return JsonResponse({
                 'error': 'Invalid JSON data.'
             }, status=400)
+        except Post.DoesNotExist:
+            return JsonResponse({
+                'error': 'Post not found.'
+            }, status=404)
+        except IntegrityError:
+            return JsonResponse({
+                'error': 'Data integrity error, please check your input.'
+            }, status=400)
+        except ValidationError as e:
+            return JsonResponse({
+                'error': f'Validation error: {str(e).strip("[]\'")}'
+            }, status=400)
         except DatabaseError:
             return JsonResponse({
-                'error': 'Database operation failed.'
+                'error': 'Database operation error, please try again later.'
             }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)
+
         
     # Soft delete post
     elif request.method == "DELETE":
@@ -236,33 +263,39 @@ def post_detail(request, post_id):
         
         try:
             post = Post.objects.get(pk=post_id)
+        
+            # Check if the logged-in user is the post author
+            if post.created_by != request.user:
+                return JsonResponse({
+                    'error': 'You can only delete your own posts.'
+                }, status=403)
+            
+            # Save post deletion state
+            with transaction.atomic():
+                post.is_deleted = True
+                post.save()
+
+            return JsonResponse({
+                'message': 'Post deleted successfully.',
+                    'post': post.serialize()  # Return updated post
+            }, status=200)
+        
         except Post.DoesNotExist:
             return JsonResponse({
                 'error': 'Post not found.'
             }, status=404)
-
-        # Check if the logged-in user is the post author
-        if post.created_by != request.user:
+        except DatabaseError:
             return JsonResponse({
-                'error': 'You can only delete your own posts.'
-            }, status=403)
-        
-        # Save post deletion state
-        with transaction.atomic():
-            post.is_deleted = True
-            post.save()
-
-        return JsonResponse({
-            'message': 'Post deleted successfully.',
-                'post': post.serialize()  # Return updated post
-        }, status=200)
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)
     
     # Not GET, PATCH or DELETE request
     else:
         return JsonResponse({"error": "Only accept GET, PATCH and DELETE methods."}, status=400)
-
-
-
 
 
 def like(request, post_id):
@@ -295,9 +328,22 @@ def like(request, post_id):
             return JsonResponse({
                 'message': 'Post liked successfully.'
             }, status=200)
+        
+        except IntegrityError:
+            return JsonResponse({
+                'error': 'Data integrity error, please check your input.'
+            }, status=400)
+        except ValidationError as e:
+            return JsonResponse({
+                'error': f'Validation error: {str(e).strip("[]\'")}'
+            }, status=400)
         except DatabaseError:
             return JsonResponse({
-                'error': 'Database operation error.'
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
             }, status=500)
     
     # Unlike a post
@@ -318,6 +364,10 @@ def like(request, post_id):
         except DatabaseError:
             return JsonResponse({
                 'error': 'Database operation error.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
             }, status=500)
     
     # Invalid method
@@ -350,7 +400,7 @@ def user_detail(request, username):
                     'following_count': user.following_count,
                     'follower_count': user.follower_count,
                 },
-                'posts': [post.serialize() for post in posts],    
+                'posts': [post.serialize() for post in posts] if posts else None,    
             }, status=200)
 
         except User.DoesNotExist:
@@ -420,9 +470,21 @@ def follow(request, username):
                 }
             }, status=200)
 
+        except IntegrityError:
+            return JsonResponse({
+                'error': 'Data integrity error, please check your input.'
+            }, status=400)
+        except ValidationError as e:
+            return JsonResponse({
+                'error': f'Validation error: {str(e).strip("[]\'")}'
+            }, status=400)
         except DatabaseError:
             return JsonResponse({
                 'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
             }, status=500)
 
     # Unfollow other user
@@ -452,6 +514,10 @@ def follow(request, username):
         except DatabaseError:
             return JsonResponse({
                 'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
             }, status=500)
 
     # Not POST or DELETE method
@@ -489,12 +555,23 @@ def posts_following(request):
                 'message': 'Get following posts successfully.',
                 'posts': [post.serialize() for post in posts]
             }, status=200)
-        
+        except Following.DoesNotExist:
+            return JsonResponse({
+                'error': 'Following user does not exist.'
+            }, status=404)
+        except Post.DoesNotExist:
+            return JsonResponse({
+                'error': 'Following post does not exist.'
+            }, status=404)
         except DatabaseError:
             return JsonResponse({
                 'error': 'Database operation error, please try again later.'
             }, status=500)
-
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)
+        
     # Not GET method
     else:
         return JsonResponse({"error": "Only accept GET method."}, status=400)

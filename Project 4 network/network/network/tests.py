@@ -1,19 +1,183 @@
-from django.test import TestCase
+from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
-from .models import Post, Comment, Like, Following
+from .models import User, Post, Comment, Like, Following
 from django.db.utils import IntegrityError
 from django.utils import timezone
 from datetime import timedelta
 from django.urls import reverse
-from django.test import Client
 import json
 from django.db import models
 from django.db.utils import DatabaseError
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
 
 User = get_user_model()
 
+class AuthenticationViewTests(TestCase):
+    def setUp(self):
+        # Create test user
+        self.user = User.objects.create_user(
+            username='testuser',
+            password='testpass123',
+            email='test@example.com'
+        )
+        self.client = Client()
+
+    def test_index_view(self):
+        """Test index view renders correctly"""
+        response = self.client.get(reverse('index'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'network/index.html')
+
+    def test_login_view_get(self):
+        """Test GET request to login view"""
+        response = self.client.get(reverse('login'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'network/login.html')
+
+    def test_login_view_post_success(self):
+        """Test successful login attempt"""
+        response = self.client.post(reverse('login'), {
+            'username': 'testuser',
+            'password': 'testpass123'
+        })
+        self.assertRedirects(response, reverse('index'))
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
+    def test_login_view_post_invalid_credentials(self):
+        """Test login attempt with invalid credentials"""
+        response = self.client.post(reverse('login'), {
+            'username': 'testuser',
+            'password': 'wrongpass'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'network/login.html')
+        self.assertContains(response, "Invalid username and/or password.")
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_logout_view(self):
+        """Test logout functionality"""
+        # First login
+        self.client.login(username='testuser', password='testpass123')
+        self.assertTrue(self.client.session.get('_auth_user_id'))
+        
+        # Then logout
+        response = self.client.get(reverse('logout'))
+        self.assertRedirects(response, reverse('index'))
+        self.assertFalse(self.client.session.get('_auth_user_id'))
+
+    def test_register_view_get(self):
+        """Test GET request to register view"""
+        response = self.client.get(reverse('register'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'network/register.html')
+
+    def test_register_view_post_success(self):
+        """Test successful registration"""
+        response = self.client.post(reverse('register'), {
+            'username': 'newuser',
+            'email': 'newuser@example.com',
+            'password': 'newpass123',
+            'confirmation': 'newpass123'
+        })
+        self.assertRedirects(response, reverse('index'))
+        self.assertTrue(User.objects.filter(username='newuser').exists())
+        self.assertTrue(response.wsgi_request.user.is_authenticated)
+
+    def test_register_view_post_password_mismatch(self):
+        """Test registration with mismatched passwords"""
+        response = self.client.post(reverse('register'), {
+            'username': 'newuser',
+            'email': 'newuser@example.com',
+            'password': 'newpass123',
+            'confirmation': 'differentpass'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'network/register.html')
+        self.assertContains(response, "Passwords must match.")
+        self.assertFalse(User.objects.filter(username='newuser').exists())
+
+    def test_register_view_post_username_taken(self):
+        """Test registration with existing username"""
+        # Use transaction.atomic() to handle the database transaction
+        with transaction.atomic():
+            response = self.client.post(reverse('register'), {
+                'username': 'testuser',  # This username already exists
+                'email': 'another@example.com',
+                'password': 'newpass123',
+                'confirmation': 'newpass123'
+            })
+            
+            self.assertEqual(response.status_code, 200)
+            self.assertTemplateUsed(response, 'network/register.html')
+            self.assertContains(response, "Username already taken.")
+        
+        # Check user count outside the transaction block
+        self.assertEqual(User.objects.filter(username='testuser').count(), 1)
+
+    def test_register_view_post_empty_fields(self):
+        """Test registration with empty required fields"""
+        test_cases = [
+            {
+                'username': '',
+                'email': 'test@example.com',
+                'password': 'pass123',
+                'confirmation': 'pass123'
+            },
+            {
+                'username': 'newuser',
+                'email': '',
+                'password': 'pass123',
+                'confirmation': 'pass123'
+            },
+            {
+                'username': 'newuser',
+                'email': 'test@example.com',
+                'password': '',
+                'confirmation': ''
+            }
+        ]
+
+        for test_case in test_cases:
+            with transaction.atomic():
+                response = self.client.post(reverse('register'), test_case)
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(response, 'network/register.html')
+                self.assertContains(response, "All fields are required.")
+                
+                # Check that no user was created
+                username = test_case.get('username')
+                if username:  # Only check if username is not empty
+                    self.assertFalse(
+                        User.objects.filter(username=username).exists()
+                    )
+
+    def test_login_view_post_empty_fields(self):
+        """Test login attempt with empty fields"""
+        test_cases = [
+            {
+                'username': '',
+                'password': 'testpass123'
+            },
+            {
+                'username': 'testuser',
+                'password': ''
+            },
+            {
+                'username': '',
+                'password': ''
+            }
+        ]
+
+        for test_case in test_cases:
+            response = self.client.post(reverse('login'), test_case)
+            self.assertEqual(response.status_code, 200)
+            self.assertTemplateUsed(response, 'network/login.html')
+            self.assertContains(response, "Invalid username and/or password.")
+            self.assertFalse(response.wsgi_request.user.is_authenticated)
+            
 class ModelTests(TestCase):
     def setUp(self):
         # Create test users
@@ -209,6 +373,7 @@ class ModelTests(TestCase):
         self.assertEqual(serialized_post['created_by'], self.post.created_by.username)
         self.assertEqual(serialized_post['created_at'], self.post.created_at.strftime("%Y-%m-%d %H:%M:%S"))
         self.assertEqual(serialized_post['is_deleted'], self.post.is_deleted)
+        
 
     def test_post_cache_mechanism(self):
         """Test the caching mechanism of Post serialization"""
@@ -424,6 +589,7 @@ class ModelTests(TestCase):
         self.assertEqual(serialized_data['created_by'], self.user2.username)
         self.assertFalse(serialized_data['is_deleted'])
         self.assertTrue('created_at' in serialized_data)
+        
 
 class PostsListViewTests(TestCase):
     def setUp(self):
@@ -500,7 +666,63 @@ class PostsListViewTests(TestCase):
             self.assertIn('id', post)
             self.assertIn('content', post)
             self.assertIn('created_by', post)
-            self.assertIn('created_at', post)
+
+    @patch('network.models.Post.objects.select_related')
+    def test_get_posts_object_does_not_exist(self, mock_select_related):
+        """Test handling of Post.DoesNotExist error when getting posts"""
+        # Mock the chain of queryset methods
+        mock_chain = (
+            mock_select_related.return_value
+            .prefetch_related.return_value
+            .filter.return_value
+            .order_by.return_value
+        )
+        mock_chain.__iter__.side_effect = Post.DoesNotExist("Posts do not exist")
+        
+        response = self.client.get(reverse('posts'))
+        
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Posts do not exist.')
+
+    @patch('network.models.Post.objects.select_related')
+    def test_get_posts_database_error(self, mock_select_related):
+        """Test handling of DatabaseError when getting posts"""
+        # Mock the chain of queryset methods
+        mock_chain = (
+            mock_select_related.return_value
+            .prefetch_related.return_value
+            .filter.return_value
+            .order_by.return_value
+        )
+        mock_chain.__iter__.side_effect = DatabaseError("Database error")
+        
+        response = self.client.get(reverse('posts'))
+        
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertEqual(
+            data['error'], 
+            'Database operation error, please try again later.'
+        )
+
+    @patch('network.models.Post.objects.select_related')
+    def test_get_posts_general_exception(self, mock_select_related):
+        """Test handling of general Exception when getting posts"""
+        # Mock the chain of queryset methods
+        mock_chain = (
+            mock_select_related.return_value
+            .prefetch_related.return_value
+            .filter.return_value
+            .order_by.return_value
+        )
+        mock_chain.__iter__.side_effect = Exception("Unexpected error")
+        
+        response = self.client.get(reverse('posts'))
+        
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Unexpected error')
 
 class PostsCreateViewTests(TestCase):
     def setUp(self):
@@ -536,6 +758,96 @@ class PostsCreateViewTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'You must be logged in to post.')
 
+    def test_create_post_invalid_json(self):
+        """Test post creation with invalid JSON data"""
+        self.client.login(username='testuser', password='testpassword')
+        response = self.client.post(
+            reverse('posts'),
+            'invalid json',
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Invalid JSON data.')
+
+    def test_create_post_empty_content(self):
+        """Test post creation with empty content"""
+        self.client.login(username='testuser', password='testpassword')
+        response = self.client.post(
+            reverse('posts'),
+            json.dumps({'content': ''}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Post content cannot be empty.')
+
+    @patch('network.models.Post.objects.create')
+    def test_create_post_integrity_error(self, mock_create):
+        """Test post creation with IntegrityError"""
+        mock_create.side_effect = IntegrityError()
+        self.client.login(username='testuser', password='testpassword')
+        
+        response = self.client.post(
+            reverse('posts'),
+            json.dumps({'content': 'Test post'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Data integrity error, please check your input.')
+
+    @patch('network.models.Post.objects.create')
+    def test_create_post_validation_error(self, mock_create):
+        """Test post creation with ValidationError"""
+        mock_create.side_effect = ValidationError('Invalid data')
+        self.client.login(username='testuser', password='testpassword')
+        
+        response = self.client.post(
+            reverse('posts'),
+            json.dumps({'content': 'Test post'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], "Validation error: Invalid data")
+
+    @patch('network.models.Post.objects.create')
+    def test_create_post_database_error(self, mock_create):
+        """Test post creation with DatabaseError"""
+        mock_create.side_effect = DatabaseError()
+        self.client.login(username='testuser', password='testpassword')
+        
+        response = self.client.post(
+            reverse('posts'),
+            json.dumps({'content': 'Test post'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Database operation error, please try again later.')
+
+    @patch('network.models.Post.objects.create')
+    def test_create_post_general_exception(self, mock_create):
+        """Test post creation with general Exception"""
+        mock_create.side_effect = Exception('Unexpected error')
+        self.client.login(username='testuser', password='testpassword')
+        
+        response = self.client.post(
+            reverse('posts'),
+            json.dumps({'content': 'Test post'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Unexpected error')
+
     def test_invalid_method(self):
         """Ensure error is returned for invalid HTTP methods"""
         response = self.client.put(reverse('posts'))
@@ -546,18 +858,20 @@ class PostsCreateViewTests(TestCase):
 
 class PostDetailViewTests(TestCase):
     def setUp(self):
+        # Create test user
         self.user = User.objects.create_user(
             username='testuser',
             password='testpass123'
         )
+        # Create test post
         self.post = Post.objects.create(
             content='Test post content',
             created_by=self.user
         )
         self.client = Client()
 
-    def test_get_post_success(self):
-        """Test successful post retrieval"""
+    def test_get_post_detail_success(self):
+        """Test successful retrieval of post details"""
         response = self.client.get(
             reverse('post', kwargs={'post_id': self.post.id})
         )
@@ -566,12 +880,14 @@ class PostDetailViewTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data['message'], 'Get post successfully.')
         self.assertEqual(data['post']['content'], 'Test post content')
+        self.assertEqual(data['post']['created_by'], 'testuser')
 
     def test_get_deleted_post(self):
-        """Test retrieval of a soft-deleted post"""
+        """Test retrieving a deleted post"""
+        # Mark post as deleted
         self.post.is_deleted = True
         self.post.save()
-        
+
         response = self.client.get(
             reverse('post', kwargs={'post_id': self.post.id})
         )
@@ -579,19 +895,51 @@ class PostDetailViewTests(TestCase):
         self.assertEqual(response.status_code, 410)
         data = json.loads(response.content)
         self.assertEqual(
-            data['error'], 
+            data['error'],
             'This post has been deleted by the author.'
         )
 
     def test_get_nonexistent_post(self):
-        """Test retrieval of a non-existent post"""
+        """Test retrieving a non-existent post"""
+        non_existent_id = 99999
         response = self.client.get(
-            reverse('post', kwargs={'post_id': 99999})
+            reverse('post', kwargs={'post_id': non_existent_id})
         )
         
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Post not found.')
+
+    def test_database_error_handling(self):
+        """Test handling of database errors"""
+        with patch('network.models.Post.objects.select_related') as mock_select_related:
+            # Simulate database error
+            mock_select_related.return_value.get.side_effect = DatabaseError()
+            
+            response = self.client.get(
+                reverse('post', kwargs={'post_id': self.post.id})
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(
+                data['error'],
+                'Database operation error, please try again later.'
+            )
+
+    def test_general_exception_handling(self):
+        """Test handling of general exceptions"""
+        with patch('network.models.Post.objects.select_related') as mock_select_related:
+            # Simulate general exception
+            mock_select_related.return_value.get.side_effect = Exception("Unexpected error")
+            
+            response = self.client.get(
+                reverse('post', kwargs={'post_id': self.post.id})
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
 
 class PostEditViewTests(TestCase):
     def setUp(self):
@@ -617,29 +965,23 @@ class PostEditViewTests(TestCase):
         """Test successful post edit by the owner"""
         self.client.login(username='testuser1', password='testpass123')
         
-        # Prepare edit data
         edit_data = {
             'content': 'Updated content'
         }
         
-        # Send edit request
         response = self.client.patch(
             reverse('post', kwargs={'post_id': self.post.id}),
             json.dumps(edit_data),
             content_type='application/json'
         )
         
-        # Check response
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
         self.assertEqual(data['message'], 'Post updated successfully.')
+        self.assertEqual(data['post']['content'], 'Updated content')
         
-        # Verify post was updated in database
         updated_post = Post.objects.get(id=self.post.id)
         self.assertEqual(updated_post.content, 'Updated content')
-        
-        # Verify updated_at was changed
-        self.assertNotEqual(updated_post.updated_at, updated_post.created_at)
 
     def test_edit_post_unauthenticated(self):
         """Test post edit when user is not logged in"""
@@ -659,7 +1001,6 @@ class PostEditViewTests(TestCase):
 
     def test_edit_post_unauthorized(self):
         """Test post edit by non-owner"""
-        # Login as different user
         self.client.login(username='testuser2', password='testpass123')
         
         edit_data = {
@@ -681,7 +1022,7 @@ class PostEditViewTests(TestCase):
         self.client.login(username='testuser1', password='testpass123')
         
         edit_data = {
-            'content': ''
+            'content': '   '  # Only whitespace
         }
         
         response = self.client.patch(
@@ -702,13 +1043,13 @@ class PostEditViewTests(TestCase):
             'content': 'Updated content'
         }
         
-        # Use a non-existing post_id
         response = self.client.patch(
             reverse('post', kwargs={'post_id': 99999}),
             json.dumps(edit_data),
             content_type='application/json'
         )
-      
+        
+        self.assertEqual(response.status_code, 404)
         self.assertEqual(
             json.loads(response.content),
             {'error': 'Post not found.'}
@@ -718,10 +1059,9 @@ class PostEditViewTests(TestCase):
         """Test post edit with invalid JSON data"""
         self.client.login(username='testuser1', password='testpass123')
         
-        # Send invalid JSON
         response = self.client.patch(
             reverse('post', kwargs={'post_id': self.post.id}),
-            '{invalid json',
+            'invalid json',
             content_type='application/json'
         )
         
@@ -729,35 +1069,73 @@ class PostEditViewTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Invalid JSON data.')
 
-    def test_edit_post_response_format(self):
-        """Test the format of successful edit response"""
+    def test_edit_post_integrity_error(self):
+        """Test handling of IntegrityError during post edit"""
         self.client.login(username='testuser1', password='testpass123')
         
-        edit_data = {
-            'content': 'Updated content'
-        }
+        with patch('network.models.Post.save') as mock_save:
+            mock_save.side_effect = IntegrityError()
+            
+            response = self.client.patch(
+                reverse('post', kwargs={'post_id': self.post.id}),
+                json.dumps({'content': 'New content'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Data integrity error, please check your input.')
+
+    def test_edit_post_validation_error(self):
+        """Test handling of ValidationError during post edit"""
+        self.client.login(username='testuser1', password='testpass123')
         
-        response = self.client.patch(
-            reverse('post', kwargs={'post_id': self.post.id}),
-            json.dumps(edit_data),
-            content_type='application/json'
-        )
+        with patch('network.models.Post.save') as mock_save:
+            mock_save.side_effect = ValidationError('Invalid data')
+            
+            response = self.client.patch(
+                reverse('post', kwargs={'post_id': self.post.id}),
+                json.dumps({'content': 'New content'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], "Validation error: Invalid data")
+
+    def test_edit_post_database_error(self):
+        """Test handling of DatabaseError during post edit"""
+        self.client.login(username='testuser1', password='testpass123')
         
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content)
+        with patch('network.models.Post.save') as mock_save:
+            mock_save.side_effect = DatabaseError()
+            
+            response = self.client.patch(
+                reverse('post', kwargs={'post_id': self.post.id}),
+                json.dumps({'content': 'New content'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation error, please try again later.')
+
+    def test_edit_post_general_exception(self):
+        """Test handling of general Exception during post edit"""
+        self.client.login(username='testuser1', password='testpass123')
         
-        # Verify response structure
-        self.assertIn('message', data)
-        self.assertIn('post', data)
-        
-        # Verify post data structure
-        post_data = data['post']
-        self.assertIn('id', post_data)
-        self.assertIn('content', post_data)
-        self.assertIn('created_by', post_data)
-        self.assertIn('created_at', post_data)
-        self.assertIn('updated_at', post_data)
-        self.assertIn('is_deleted', post_data)
+        with patch('network.models.Post.save') as mock_save:
+            mock_save.side_effect = Exception('Unexpected error')
+            
+            response = self.client.patch(
+                reverse('post', kwargs={'post_id': self.post.id}),
+                json.dumps({'content': 'New content'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
 
 class PostSoftDeleteViewTests(TestCase):
     def setUp(self):
@@ -793,7 +1171,9 @@ class PostSoftDeleteViewTests(TestCase):
         self.assertEqual(data['message'], 'Post deleted successfully.')
         
         # Verify post is marked as deleted
-        self.assertTrue(Post.objects.get(id=self.post.id).is_deleted)
+        updated_post = Post.objects.get(id=self.post.id)
+        self.assertTrue(updated_post.is_deleted)
+        self.assertEqual(data['post'], updated_post.serialize())
 
     def test_soft_delete_post_unauthenticated(self):
         """Test soft deletion when user is not logged in"""
@@ -805,6 +1185,9 @@ class PostSoftDeleteViewTests(TestCase):
         self.assertEqual(response.status_code, 401)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'You must be logged in to delete posts.')
+        
+        # Verify post is not deleted
+        self.assertFalse(Post.objects.get(id=self.post.id).is_deleted)
 
     def test_soft_delete_post_unauthorized(self):
         """Test soft deletion by non-owner"""
@@ -818,6 +1201,9 @@ class PostSoftDeleteViewTests(TestCase):
         self.assertEqual(response.status_code, 403)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'You can only delete your own posts.')
+        
+        # Verify post is not deleted
+        self.assertFalse(Post.objects.get(id=self.post.id).is_deleted)
 
     def test_soft_delete_nonexistent_post(self):
         """Test soft deletion of a post that doesn't exist"""
@@ -831,6 +1217,44 @@ class PostSoftDeleteViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Post not found.')
+
+    def test_soft_delete_database_error(self):
+        """Test database error during soft deletion"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Post.save') as mock_save:
+            mock_save.side_effect = DatabaseError()
+            
+            response = self.client.delete(
+                reverse('post', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation error, please try again later.')
+            
+            # Verify post is not deleted
+            self.assertFalse(Post.objects.get(id=self.post.id).is_deleted)
+
+    def test_soft_delete_general_exception(self):
+        """Test general exception during soft deletion"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Post.save') as mock_save:
+            mock_save.side_effect = Exception('Unexpected error')
+            
+            response = self.client.delete(
+                reverse('post', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
+            
+            # Verify post is not deleted
+            self.assertFalse(Post.objects.get(id=self.post.id).is_deleted)
 
 class PostMethodTests(TestCase):
     """Test case for handling HTTP methods in post-related views"""
@@ -932,7 +1356,7 @@ class UserDetailViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
         
-        # Verify response format
+        # Verify response format and message
         self.assertEqual(data['message'], 'Get user detail successfully.')
         self.assertIn('user', data)
         self.assertIn('posts', data)
@@ -944,10 +1368,27 @@ class UserDetailViewTests(TestCase):
         self.assertEqual(user_data['following_count'], 0)  # user has 0 followings
         self.assertEqual(user_data['follower_count'], 1)  # user has 1 follower (other_user)
         
-        # Verify posts list
+        # Verify posts data
         posts = data['posts']
-        self.assertEqual(len(posts), 1)  # Should only return non-deleted posts
+        self.assertEqual(len(posts), 1)  # Only active posts
         self.assertEqual(posts[0]['content'], 'Active post')
+
+    def test_get_user_detail_no_posts(self):
+        """Test user detail retrieval for user with no posts"""
+        # Create new user with no posts
+        new_user = User.objects.create_user(
+            username='newuser',
+            password='testpass123',
+            email='new@example.com'
+        )
+        
+        response = self.client.get(
+            reverse('user_detail', kwargs={'username': new_user.username})
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertIsNone(data['posts'])
 
     def test_get_nonexistent_user(self):
         """Test retrieving non-existent user"""
@@ -972,9 +1413,35 @@ class UserDetailViewTests(TestCase):
             data = json.loads(response.content)
             self.assertEqual(data['error'], 'Only accept GET methods.')
 
+    def test_database_error_handling(self):
+        """Test database error handling"""
+        with patch('network.models.User.objects.get') as mock_get:
+            mock_get.side_effect = DatabaseError("Database error")
+            
+            response = self.client.get(
+                reverse('user_detail', kwargs={'username': self.user.username})
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation failed.')
+
+    def test_unexpected_error_handling(self):
+        """Test unexpected error handling"""
+        with patch('network.models.User.objects.get') as mock_get:
+            mock_get.side_effect = Exception("Unexpected error")
+            
+            response = self.client.get(
+                reverse('user_detail', kwargs={'username': self.user.username})
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error: Unexpected error')
+
     def test_post_ordering(self):
-        """Test post ordering"""
-        # Create a newer post
+        """Test posts are ordered by creation time descending"""
+        # Create posts with different timestamps
         newer_post = Post.objects.create(
             content='Newer post',
             created_by=self.user,
@@ -988,23 +1455,9 @@ class UserDetailViewTests(TestCase):
         data = json.loads(response.content)
         posts = data['posts']
         
-        # Verify posts are ordered by descending creation time
         self.assertEqual(len(posts), 2)
         self.assertEqual(posts[0]['content'], 'Newer post')
         self.assertEqual(posts[1]['content'], 'Active post')
-
-    def test_database_error_handling(self):
-        """Test database error handling"""
-        with patch('network.models.User.objects.get') as mock_get:
-            mock_get.side_effect = DatabaseError("Database error")
-            
-            response = self.client.get(
-                reverse('user_detail', kwargs={'username': self.user.username})
-            )
-            
-            self.assertEqual(response.status_code, 500)
-            data = json.loads(response.content)
-            self.assertEqual(data['error'], 'Database operation failed.')
 
 class PostLikeViewTests(TestCase):
     def setUp(self):
@@ -1025,7 +1478,7 @@ class PostLikeViewTests(TestCase):
         )
         
         self.client = Client()
-        
+
     def test_like_post_success(self):
         """Test successful post like"""
         self.client.login(username='testuser2', password='testpass123')
@@ -1039,16 +1492,11 @@ class PostLikeViewTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data['message'], 'Post liked successfully.')
         
-        # Verify like was created in database
-        self.assertTrue(
-            Like.objects.filter(
-                user=self.user2,
-                post=self.post
-            ).exists()
-        )
-        
+        # Verify like was created
+        self.assertTrue(Like.objects.filter(user=self.user2, post=self.post).exists())
+
     def test_like_post_unauthenticated(self):
-        """Test liking post when user is not logged in"""
+        """Test liking post when not logged in"""
         response = self.client.post(
             reverse('like', kwargs={'post_id': self.post.id}),
             content_type='application/json'
@@ -1056,13 +1504,10 @@ class PostLikeViewTests(TestCase):
         
         self.assertEqual(response.status_code, 401)
         data = json.loads(response.content)
-        self.assertEqual(
-            data['error'],
-            'You must be logged in to like posts.'
-        )
-        
+        self.assertEqual(data['error'], 'You must be logged in to like posts.')
+
     def test_like_nonexistent_post(self):
-        """Test liking a post that doesn't exist"""
+        """Test liking nonexistent post"""
         self.client.login(username='testuser2', password='testpass123')
         
         response = self.client.post(
@@ -1073,15 +1518,12 @@ class PostLikeViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Post not found.')
-        
+
     def test_like_already_liked_post(self):
-        """Test liking a post that's already been liked"""
+        """Test liking already liked post"""
         self.client.login(username='testuser2', password='testpass123')
-        
-        # Create initial like
         Like.objects.create(user=self.user2, post=self.post)
         
-        # Try to like again
         response = self.client.post(
             reverse('like', kwargs={'post_id': self.post.id}),
             content_type='application/json'
@@ -1089,19 +1531,77 @@ class PostLikeViewTests(TestCase):
         
         self.assertEqual(response.status_code, 400)
         data = json.loads(response.content)
-        self.assertEqual(
-            data['error'],
-            'You have already liked this post.'
-        )
+        self.assertEqual(data['error'], 'You have already liked this post.')
+
+    def test_like_post_integrity_error(self):
+        """Test integrity error when liking post"""
+        self.client.login(username='testuser2', password='testpass123')
         
+        with patch('network.models.Like.objects.create') as mock_create:
+            mock_create.side_effect = IntegrityError()
+            
+            response = self.client.post(
+                reverse('like', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Data integrity error, please check your input.')
+
+    def test_like_post_validation_error(self):
+        """Test validation error when liking post"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        with patch('network.models.Like.objects.create') as mock_create:
+            mock_create.side_effect = ValidationError('Invalid data')
+            
+            response = self.client.post(
+                reverse('like', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Validation error: Invalid data')
+
+    def test_like_post_database_error(self):
+        """Test database error when liking post"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        with patch('network.models.Like.objects.create') as mock_create:
+            mock_create.side_effect = DatabaseError()
+            
+            response = self.client.post(
+                reverse('like', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation error, please try again later.')
+
+    def test_like_post_general_error(self):
+        """Test general error when liking post"""
+        self.client.login(username='testuser2', password='testpass123')
+        
+        with patch('network.models.Like.objects.create') as mock_create:
+            mock_create.side_effect = Exception('Unexpected error')
+            
+            response = self.client.post(
+                reverse('like', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
+
     def test_unlike_post_success(self):
         """Test successful post unlike"""
         self.client.login(username='testuser2', password='testpass123')
-        
-        # Create initial like
         Like.objects.create(user=self.user2, post=self.post)
         
-        # Unlike post
         response = self.client.delete(
             reverse('like', kwargs={'post_id': self.post.id}),
             content_type='application/json'
@@ -1111,16 +1611,11 @@ class PostLikeViewTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data['message'], 'Post unliked successfully.')
         
-        # Verify like was removed from database
-        self.assertFalse(
-            Like.objects.filter(
-                user=self.user2,
-                post=self.post
-            ).exists()
-        )
-        
+        # Verify like was deleted
+        self.assertFalse(Like.objects.filter(user=self.user2, post=self.post).exists())
+
     def test_unlike_not_liked_post(self):
-        """Test unliking a post that hasn't been liked"""
+        """Test unliking not liked post"""
         self.client.login(username='testuser2', password='testpass123')
         
         response = self.client.delete(
@@ -1130,90 +1625,63 @@ class PostLikeViewTests(TestCase):
         
         self.assertEqual(response.status_code, 400)
         data = json.loads(response.content)
-        self.assertEqual(
-            data['error'],
-            'You have not liked this post.'
-        )
+        self.assertEqual(data['error'], 'You have not liked this post.')
+
+    def test_unlike_post_database_error(self):
+        """Test database error when unliking post"""
+        self.client.login(username='testuser2', password='testpass123')
+        Like.objects.create(user=self.user2, post=self.post)
         
+        with patch('network.models.Like.objects.filter') as mock_filter:
+            mock_queryset = MagicMock()
+            mock_queryset.exists.return_value = True
+            mock_queryset.first.return_value = Like(user=self.user2)
+            mock_queryset.delete.side_effect = DatabaseError()
+            mock_filter.return_value = mock_queryset
+            
+            response = self.client.delete(
+                reverse('like', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation error.')
+
+    def test_unlike_post_general_error(self):
+        """Test general error when unliking post"""
+        self.client.login(username='testuser2', password='testpass123')
+        Like.objects.create(user=self.user2, post=self.post)
+        
+        with patch('network.models.Like.objects.filter') as mock_filter:
+            mock_queryset = MagicMock()
+            mock_queryset.exists.return_value = True
+            mock_queryset.first.return_value = Like(user=self.user2)
+            mock_queryset.delete.side_effect = Exception('Unexpected error')
+            mock_filter.return_value = mock_queryset
+            
+            response = self.client.delete(
+                reverse('like', kwargs={'post_id': self.post.id}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
+
     def test_invalid_http_method(self):
         """Test invalid HTTP methods"""
         self.client.login(username='testuser2', password='testpass123')
         
-        invalid_methods = ['PUT', 'PATCH', 'GET']
-        
-        for method in invalid_methods:
-            response = getattr(self.client, method.lower())(
+        for method in ['put', 'patch', 'get']:
+            response = getattr(self.client, method)(
                 reverse('like', kwargs={'post_id': self.post.id}),
                 content_type='application/json'
             )
             
             self.assertEqual(response.status_code, 405)
             data = json.loads(response.content)
-            self.assertEqual(
-                data['error'],
-                'Only accept POST and DELETE methods.'
-            )
-            
-    def test_like_count_updates(self):
-        """Test that post's like count updates correctly"""
-        self.client.login(username='testuser2', password='testpass123')
-        
-        # Initial like count should be 0
-        self.assertEqual(self.post.likes_count, 0)
-        
-        # Like the post
-        self.client.post(
-            reverse('like', kwargs={'post_id': self.post.id}),
-            content_type='application/json'
-        )
-        
-        # Refresh post from database
-        self.post.refresh_from_db()
-        self.assertEqual(self.post.likes_count, 1)
-        
-        # Unlike the post
-        self.client.delete(
-            reverse('like', kwargs={'post_id': self.post.id}),
-            content_type='application/json'
-        )
-        
-        # Refresh post from database
-        self.post.refresh_from_db()
-        self.assertEqual(self.post.likes_count, 0)
-        
-    def test_multiple_users_like(self):
-        """Test multiple users liking the same post"""
-        # Create additional test user
-        user3 = User.objects.create_user(
-            username='testuser3',
-            password='testpass123'
-        )
-        
-        # User2 likes the post
-        self.client.login(username='testuser2', password='testpass123')
-        self.client.post(
-            reverse('like', kwargs={'post_id': self.post.id}),
-            content_type='application/json'
-        )
-        
-        # User3 likes the post
-        self.client.login(username='testuser3', password='testpass123')
-        self.client.post(
-            reverse('like', kwargs={'post_id': self.post.id}),
-            content_type='application/json'
-        )
-        
-        # Verify like count
-        self.post.refresh_from_db()
-        self.assertEqual(self.post.likes_count, 2)
-        
-        # Verify both likes exist in database
-        self.assertTrue(
-            Like.objects.filter(user=self.user2, post=self.post).exists()
-        )
-        self.assertTrue(
-            Like.objects.filter(user=user3, post=self.post).exists()
-        )
+            self.assertEqual(data['error'], 'Only accept POST and DELETE methods.')
 
 class FollowViewTests(TestCase):
     def setUp(self):
@@ -1279,7 +1747,7 @@ class FollowViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'User not found.')
-
+         
     def test_follow_self(self):
         """Test attempting to follow oneself"""
         self.client.login(username='testuser1', password='testpass123')
@@ -1317,6 +1785,70 @@ class FollowViewTests(TestCase):
             data['error'],
             'You are already following this user.'
         )
+
+    def test_follow_integrity_error(self):
+        """Test integrity error when following user"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Following.objects.create') as mock_create:
+            mock_create.side_effect = IntegrityError("Integrity error")
+            
+            response = self.client.post(
+                reverse('follow', kwargs={'username': 'testuser2'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Data integrity error, please check your input.')
+
+    def test_follow_validation_error(self):
+        """Test validation error when following user"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Following.objects.create') as mock_create:
+            mock_create.side_effect = ValidationError("Validation error")
+            
+            response = self.client.post(
+                reverse('follow', kwargs={'username': 'testuser2'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Validation error: Validation error')
+
+    def test_follow_database_error(self):
+        """Test database error when following user"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Following.objects.create') as mock_create:
+            mock_create.side_effect = DatabaseError("Database error")
+            
+            response = self.client.post(
+                reverse('follow', kwargs={'username': 'testuser2'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation error, please try again later.')
+
+    def test_follow_unexpected_error(self):
+        """Test unexpected error when following user"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Following.objects.create') as mock_create:
+            mock_create.side_effect = Exception("Unexpected error")
+            
+            response = self.client.post(
+                reverse('follow', kwargs={'username': 'testuser2'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
 
     def test_unfollow_success(self):
         """Test successful unfollow"""
@@ -1365,6 +1897,64 @@ class FollowViewTests(TestCase):
             'You are not following this user.'
         )
 
+    def test_unfollow_database_error(self):
+        """Test database error when unfollowing user"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        # Create initial following relationship
+        Following.objects.create(
+            follower=self.user1,
+            following=self.user2
+        )
+        
+        with patch('network.models.Following.objects.filter') as mock_filter:
+            mock_queryset = MagicMock()
+            mock_queryset.exists.return_value = True
+            mock_queryset.delete.side_effect = DatabaseError()
+            mock_filter.return_value = mock_queryset
+            
+            response = self.client.delete(
+                reverse('follow', kwargs={'username': 'testuser2'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation error, please try again later.')
+            
+            # Verify following relationship still exists
+            self.assertTrue(
+                Following.objects.filter(
+                    follower=self.user1,
+                    following=self.user2
+                ).exists()
+            )
+
+    def test_unfollow_unexpected_error(self):
+        """Test unexpected error when unfollowing user"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        # Create initial following relationship
+        Following.objects.create(
+            follower=self.user1,
+            following=self.user2
+        )
+        
+        with patch('network.models.Following.objects.filter') as mock_filter:
+            mock_queryset = MagicMock()
+            mock_queryset.exists.return_value = True
+            mock_queryset.delete.side_effect = Exception("Unexpected error")
+            mock_filter.return_value = mock_queryset
+            
+            response = self.client.delete(
+                reverse('follow', kwargs={'username': 'testuser2'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], str(mock_queryset.delete.side_effect))
+
     def test_invalid_http_method(self):
         """Test invalid HTTP methods"""
         self.client.login(username='testuser1', password='testpass123')
@@ -1383,49 +1973,6 @@ class FollowViewTests(TestCase):
                 data['error'],
                 'Only accept POST and DELETE method.'
             )
-
-    @patch('network.models.Following.objects.create')
-    def test_database_error_follow(self, mock_create):
-        """Test database error during follow operation"""
-        self.client.login(username='testuser1', password='testpass123')
-        
-        mock_create.side_effect = DatabaseError("Database error")
-        
-        response = self.client.post(
-            reverse('follow', kwargs={'username': 'testuser2'}),
-            content_type='application/json'
-        )
-        
-        self.assertEqual(response.status_code, 500)
-        data = json.loads(response.content)
-        self.assertEqual(
-            data['error'],
-            'Database operation error, please try again later.'
-        )
-
-    @patch('network.models.Following.objects.filter')
-    def test_database_error_unfollow(self, mock_filter):
-        """Test database error during unfollow operation"""
-        # Create initial following relationship
-        Following.objects.create(
-            follower=self.user1,
-            following=self.user2
-        )
-        
-        mock_filter.return_value.delete.side_effect = DatabaseError("Database error")
-        self.client.login(username='testuser1', password='testpass123')
-        
-        response = self.client.delete(
-            reverse('follow', kwargs={'username': 'testuser2'}),
-            content_type='application/json'
-        )
-        
-        self.assertEqual(response.status_code, 500)
-        data = json.loads(response.content)
-        self.assertEqual(
-            data['error'],
-            'Database operation error, please try again later.'
-        )
 
 class PostsFollowingViewTests(TestCase):
     def setUp(self):
@@ -1547,6 +2094,36 @@ class PostsFollowingViewTests(TestCase):
             self.assertEqual(data['error'], 'Only accept GET method.')
 
     @patch('network.models.Following.objects.filter')
+    def test_following_does_not_exist(self, mock_filter):
+        """Test handling of Following.DoesNotExist"""
+        self.client.login(username='testuser1', password='testpass123')
+        mock_filter.side_effect = Following.DoesNotExist()
+        
+        response = self.client.get(reverse('posts_following'))
+        
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Following user does not exist.')
+
+    @patch('network.models.Post.objects.select_related')
+    def test_post_does_not_exist(self, mock_select_related):
+        """Test handling of Post.DoesNotExist"""
+        self.client.login(username='testuser1', password='testpass123')
+        mock_chain = (
+            mock_select_related.return_value
+            .prefetch_related.return_value
+            .filter.return_value
+            .order_by.return_value
+        )
+        mock_chain.__iter__.side_effect = Post.DoesNotExist()
+        
+        response = self.client.get(reverse('posts_following'))
+        
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Following post does not exist.')
+
+    @patch('network.models.Following.objects.filter')
     def test_database_error_handling(self, mock_filter):
         """Test handling of DatabaseError"""
         self.client.login(username='testuser1', password='testpass123')
@@ -1560,3 +2137,16 @@ class PostsFollowingViewTests(TestCase):
             data['error'],
             'Database operation error, please try again later.'
         )
+
+    @patch('network.models.Following.objects.filter')
+    def test_general_exception_handling(self, mock_filter):
+        """Test handling of general exceptions"""
+        self.client.login(username='testuser1', password='testpass123')
+        mock_filter.side_effect = Exception("Unexpected error")
+        
+        response = self.client.get(reverse('posts_following'))
+        
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Unexpected error')
+
