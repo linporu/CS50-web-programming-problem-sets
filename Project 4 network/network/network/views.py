@@ -124,7 +124,6 @@ def posts(request):
                 'error': str(e)
             }, status=500)
         
-    
     # Get posts
     elif request.method == "GET":
         try:
@@ -576,3 +575,74 @@ def posts_following(request):
     else:
         return JsonResponse({"error": "Only accept GET method."}, status=400)
     
+
+def comments(request, post_id):
+
+    # Check if user is authenticated
+    if not request.user.is_authenticated:
+        return JsonResponse({
+            'error': 'You must be logged in to create, edit or delete your comment.'
+        }, status=401)
+    
+    # Check if post exists
+    try:
+        post = Post.objects.get(pk=post_id)
+    except Post.DoesNotExist:
+        return JsonResponse({
+            'error': 'Post not found.'
+        }, status=404)
+
+    # Comment a post
+    if request.method == "POST":
+
+        # Check if JSON data valid
+        try:
+            data = json.loads(request.body)
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'error': 'Invalid JSON data.'
+            }, status=400)
+
+        # Check if content exist    
+        if not data.get('content'):
+            return JsonResponse({
+                'error': 'Comment content can not be empty.'
+            }, status=400)
+        
+        # Create new comment
+        try:
+            comment = Comment.objects.create(
+                created_by=request.user,
+                post=post,
+                content=data.get('content')
+            )
+            
+            return JsonResponse({
+                'message': 'Comment created successfully.',
+                'comment': comment.serialize()
+            }, status=201)
+        
+        except IntegrityError:
+            return JsonResponse({
+                'error': 'Data integrity error, please check your input.'
+            }, status=400)
+        except ValidationError as e:
+            return JsonResponse({
+                'error': f'Validation error: {str(e).strip("[]\'")}'
+            }, status=400)
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)
+        
+    # Not POST method
+    else:
+        return JsonResponse({"error": "Only accept POST method."}, status=400)
+    
+
+def comment_detail(request, comment_id):
+    pass
