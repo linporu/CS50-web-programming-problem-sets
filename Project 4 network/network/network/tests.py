@@ -2329,3 +2329,221 @@ class CommentViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Only accept POST method.')
+
+
+class CommentDetailViewTests(TestCase):
+    def setUp(self):
+        """Set up test data"""
+        # Create test users
+        self.user1 = User.objects.create_user(
+            username='testuser1',
+            password='testpass123'
+        )
+        self.user2 = User.objects.create_user(
+            username='testuser2', 
+            password='testpass123'
+        )
+
+        # Create test post
+        self.post = Post.objects.create(
+            created_by=self.user1,
+            content='Test post content'
+        )
+
+    def test_edit_comment_success(self):
+        """Test successful comment edit"""
+        self.client.login(username='testuser1', password='testpass123')
+        comment = Comment.objects.create(
+            created_by=self.user1,
+            post=self.post,
+            content='Original content'
+        )
+        
+        response = self.client.patch(
+            reverse('comment_detail', kwargs={'comment_id': comment.id}),
+            json.dumps({'content': 'Updated content'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data['message'], 'Comment updated successfully.')
+        self.assertEqual(data['comment']['content'], 'Updated content')
+
+    def test_edit_comment_unauthorized(self):
+        """Test editing comment by non-author"""
+        self.client.login(username='testuser2', password='testpass123')
+        comment = Comment.objects.create(
+            created_by=self.user1,
+            post=self.post,
+            content='Original content'
+        )
+        
+        response = self.client.patch(
+            reverse('comment_detail', kwargs={'comment_id': comment.id}),
+            json.dumps({'content': 'Updated content'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 403)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'You can only edit your own comments.')
+
+    def test_edit_comment_invalid_json(self):
+        """Test editing comment with invalid JSON"""
+        self.client.login(username='testuser1', password='testpass123')
+        comment = Comment.objects.create(
+            created_by=self.user1,
+            post=self.post,
+            content='Original content'
+        )
+        
+        response = self.client.patch(
+            reverse('comment_detail', kwargs={'comment_id': comment.id}),
+            'invalid json',
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Invalid JSON data.')
+
+    def test_edit_comment_not_found(self):
+        """Test editing non-existent comment"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        response = self.client.patch(
+            reverse('comment_detail', kwargs={'comment_id': 99999}),
+            json.dumps({'content': 'Updated content'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Comment not found.')
+
+    def test_edit_comment_empty_content(self):
+        """Test editing comment with empty content"""
+        self.client.login(username='testuser1', password='testpass123')
+        comment = Comment.objects.create(
+            created_by=self.user1,
+            post=self.post,
+            content='Original content'
+        )
+        
+        response = self.client.patch(
+            reverse('comment_detail', kwargs={'comment_id': comment.id}),
+            json.dumps({'content': '   '}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Comment content can not be blank.')
+
+    def test_edit_comment_database_error(self):
+        """Test handling DatabaseError during comment edit"""
+        self.client.login(username='testuser1', password='testpass123')
+        comment = Comment.objects.create(
+            created_by=self.user1,
+            post=self.post,
+            content='Original content'
+        )
+        
+        with patch('network.models.Comment.save') as mock_save:
+            mock_save.side_effect = DatabaseError()
+            
+            response = self.client.patch(
+                reverse('comment_detail', kwargs={'comment_id': comment.id}),
+                json.dumps({'content': 'Updated content'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation error, please try again later.')
+
+    def test_edit_comment_validation_error(self):
+        """Test handling ValidationError during comment edit"""
+        self.client.login(username='testuser1', password='testpass123')
+        comment = Comment.objects.create(
+            created_by=self.user1,
+            post=self.post,
+            content='Original content'
+        )
+        
+        with patch('network.models.Comment.save') as mock_save:
+            mock_save.side_effect = ValidationError('Invalid content')
+            
+            response = self.client.patch(
+                reverse('comment_detail', kwargs={'comment_id': comment.id}),
+                json.dumps({'content': 'Updated content'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Validation error: Invalid content')
+
+    def test_edit_comment_integrity_error(self):
+        """Test handling IntegrityError during comment edit"""
+        self.client.login(username='testuser1', password='testpass123')
+        comment = Comment.objects.create(
+            created_by=self.user1,
+            post=self.post,
+            content='Original content'
+        )
+        
+        with patch('network.models.Comment.save') as mock_save:
+            mock_save.side_effect = IntegrityError()
+            
+            response = self.client.patch(
+                reverse('comment_detail', kwargs={'comment_id': comment.id}),
+                json.dumps({'content': 'Updated content'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Data integrity error, please check your input.')
+
+    def test_edit_comment_general_exception(self):
+        """Test handling general Exception during comment edit"""
+        self.client.login(username='testuser1', password='testpass123')
+        comment = Comment.objects.create(
+            created_by=self.user1,
+            post=self.post,
+            content='Original content'
+        )
+        
+        with patch('network.models.Comment.save') as mock_save:
+            mock_save.side_effect = Exception('Unexpected error')
+            
+            response = self.client.patch(
+                reverse('comment_detail', kwargs={'comment_id': comment.id}),
+                json.dumps({'content': 'Updated content'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
+
+    def test_edit_comment_invalid_method(self):
+        """Test handling invalid HTTP methods for comment edit"""
+        self.client.login(username='testuser1', password='testpass123')
+        comment = Comment.objects.create(
+            created_by=self.user1,
+            post=self.post,
+            content='Original content'
+        )
+        
+        response = self.client.post(
+            reverse('comment_detail', kwargs={'comment_id': comment.id}),
+            json.dumps({'content': 'Updated content'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Only accept PATCH and DELETE methods.')
