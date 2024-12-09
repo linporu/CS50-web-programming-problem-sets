@@ -130,7 +130,7 @@ def posts(request):
                 'posts': [post.serialize() for post in posts]
             }, status=200)
         
-        except ObjectDoesNotExist:
+        except Post.DoesNotExist:
             return JsonResponse({
                 'error': 'Posts do not exist.'
             }, status=404)
@@ -490,12 +490,23 @@ def posts_following(request):
                 'message': 'Get following posts successfully.',
                 'posts': [post.serialize() for post in posts]
             }, status=200)
-        
+        except Following.DoesNotExist:
+            return JsonResponse({
+                'error': 'Following user does not exist.'
+            }, status=404)
+        except Post.DoesNotExist:
+            return JsonResponse({
+                'error': 'Following post does not exist.'
+            }, status=404)
         except DatabaseError:
             return JsonResponse({
                 'error': 'Database operation error, please try again later.'
             }, status=500)
-
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
+            }, status=500)
+        
     # Not GET method
     else:
         return JsonResponse({"error": "Only accept GET method."}, status=400)

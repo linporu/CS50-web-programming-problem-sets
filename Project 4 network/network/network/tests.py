@@ -505,7 +505,7 @@ class PostsListViewTests(TestCase):
 
     @patch('network.models.Post.objects.select_related')
     def test_get_posts_object_does_not_exist(self, mock_select_related):
-        """Test handling of ObjectDoesNotExist error when getting posts"""
+        """Test handling of Post.DoesNotExist error when getting posts"""
         # Mock the chain of queryset methods
         mock_chain = (
             mock_select_related.return_value
@@ -513,7 +513,7 @@ class PostsListViewTests(TestCase):
             .filter.return_value
             .order_by.return_value
         )
-        mock_chain.__iter__.side_effect = ObjectDoesNotExist("Posts do not exist")
+        mock_chain.__iter__.side_effect = Post.DoesNotExist("Posts do not exist")
         
         response = self.client.get(reverse('posts'))
         
@@ -1100,6 +1100,21 @@ class UserDetailViewTests(TestCase):
             data = json.loads(response.content)
             self.assertEqual(data['error'], 'Database operation failed.')
 
+    @patch('network.models.User.objects.get')
+    def test_unexpected_error(self, mock_get):
+        """Test unexpected error handling"""
+        mock_get.side_effect = ValueError("Unexpected error occurred")
+        
+        response = self.client.get(
+            reverse('user_detail', kwargs={'username': self.user.username})
+        )
+        
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(
+            response.json(), 
+            {'error': 'Unexpected error: Unexpected error occurred'}
+        )
+
 class PostLikeViewTests(TestCase):
     def setUp(self):
         # Create test users
@@ -1641,6 +1656,36 @@ class PostsFollowingViewTests(TestCase):
             self.assertEqual(data['error'], 'Only accept GET method.')
 
     @patch('network.models.Following.objects.filter')
+    def test_following_does_not_exist(self, mock_filter):
+        """Test handling of Following.DoesNotExist"""
+        self.client.login(username='testuser1', password='testpass123')
+        mock_filter.side_effect = Following.DoesNotExist()
+        
+        response = self.client.get(reverse('posts_following'))
+        
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Following user does not exist.')
+
+    @patch('network.models.Post.objects.select_related')
+    def test_post_does_not_exist(self, mock_select_related):
+        """Test handling of Post.DoesNotExist"""
+        self.client.login(username='testuser1', password='testpass123')
+        mock_chain = (
+            mock_select_related.return_value
+            .prefetch_related.return_value
+            .filter.return_value
+            .order_by.return_value
+        )
+        mock_chain.__iter__.side_effect = Post.DoesNotExist()
+        
+        response = self.client.get(reverse('posts_following'))
+        
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Following post does not exist.')
+
+    @patch('network.models.Following.objects.filter')
     def test_database_error_handling(self, mock_filter):
         """Test handling of DatabaseError"""
         self.client.login(username='testuser1', password='testpass123')
@@ -1654,3 +1699,15 @@ class PostsFollowingViewTests(TestCase):
             data['error'],
             'Database operation error, please try again later.'
         )
+
+    @patch('network.models.Following.objects.filter')
+    def test_general_exception_handling(self, mock_filter):
+        """Test handling of general exceptions"""
+        self.client.login(username='testuser1', password='testpass123')
+        mock_filter.side_effect = Exception("Unexpected error")
+        
+        response = self.client.get(reverse('posts_following'))
+        
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Unexpected error')
