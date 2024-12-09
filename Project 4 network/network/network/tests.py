@@ -2150,3 +2150,182 @@ class PostsFollowingViewTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Unexpected error')
 
+class CommentViewTests(TestCase):
+    def setUp(self):
+        # Create test users
+        self.user1 = User.objects.create_user(
+            username='testuser1',
+            password='testpass123'
+        )
+        
+        # Create test post
+        self.post = Post.objects.create(
+            content='Test post content',
+            created_by=self.user1
+        )
+        
+        # Initialize test client
+        self.client = Client()
+
+    def test_comment_authentication_required(self):
+        """Test that authentication is required for commenting"""
+        response = self.client.post(
+            reverse('comments', kwargs={'post_id': self.post.id}),
+            json.dumps({'content': 'Test comment'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 401)
+        data = json.loads(response.content)
+        self.assertEqual(
+            data['error'],
+            'You must be logged in to create, edit or delete your comment.'
+        )
+
+    def test_comment_post_not_found(self):
+        """Test commenting on non-existent post"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        response = self.client.post(
+            reverse('comments', kwargs={'post_id': 99999}),
+            json.dumps({'content': 'Test comment'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Post not found.')
+
+    def test_comment_invalid_json(self):
+        """Test handling of invalid JSON data"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        response = self.client.post(
+            reverse('comments', kwargs={'post_id': self.post.id}),
+            'Invalid JSON',
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Invalid JSON data.')
+
+    def test_comment_empty_content(self):
+        """Test commenting with empty content"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        response = self.client.post(
+            reverse('comments', kwargs={'post_id': self.post.id}),
+            json.dumps({'content': ''}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Comment content can not be empty.')
+
+    def test_comment_successful_creation(self):
+        """Test successful comment creation"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        response = self.client.post(
+            reverse('comments', kwargs={'post_id': self.post.id}),
+            json.dumps({'content': 'Test comment'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 201)
+        data = json.loads(response.content)
+        self.assertEqual(data['message'], 'Comment created successfully.')
+        
+        # Verify comment was created in database
+        comment = Comment.objects.filter(post=self.post).first()
+        self.assertIsNotNone(comment)
+        self.assertEqual(comment.content, 'Test comment')
+        self.assertEqual(comment.created_by, self.user1)
+
+    def test_comment_integrity_error(self):
+        """Test handling of IntegrityError during comment creation"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Comment.objects.create') as mock_create:
+            mock_create.side_effect = IntegrityError()
+            
+            response = self.client.post(
+                reverse('comments', kwargs={'post_id': self.post.id}),
+                json.dumps({'content': 'Test comment'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(
+                data['error'],
+                'Data integrity error, please check your input.'
+            )
+
+    def test_comment_validation_error(self):
+        """Test handling of ValidationError during comment creation"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Comment.objects.create') as mock_create:
+            mock_create.side_effect = ValidationError('Invalid data')
+            
+            response = self.client.post(
+                reverse('comments', kwargs={'post_id': self.post.id}),
+                json.dumps({'content': 'Test comment'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Validation error: Invalid data')
+
+    def test_comment_database_error(self):
+        """Test handling of DatabaseError during comment creation"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Comment.objects.create') as mock_create:
+            mock_create.side_effect = DatabaseError()
+            
+            response = self.client.post(
+                reverse('comments', kwargs={'post_id': self.post.id}),
+                json.dumps({'content': 'Test comment'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(
+                data['error'],
+                'Database operation error, please try again later.'
+            )
+
+    def test_comment_general_exception(self):
+        """Test handling of general Exception during comment creation"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Comment.objects.create') as mock_create:
+            mock_create.side_effect = Exception('Unexpected error')
+            
+            response = self.client.post(
+                reverse('comments', kwargs={'post_id': self.post.id}),
+                json.dumps({'content': 'Test comment'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
+
+    def test_comment_invalid_method(self):
+        """Test handling of invalid HTTP methods"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        response = self.client.get(
+            reverse('comments', kwargs={'post_id': self.post.id})
+        )
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Only accept POST method.')
