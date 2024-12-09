@@ -803,7 +803,7 @@ class PostsCreateViewTests(TestCase):
     @patch('network.models.Post.objects.create')
     def test_create_post_validation_error(self, mock_create):
         """Test post creation with ValidationError"""
-        mock_create.side_effect = ValidationError('Invalid data')
+        mock_create.side_effect = ValidationError(['Invalid data'])
         self.client.login(username='testuser', password='testpassword')
         
         response = self.client.post(
@@ -814,7 +814,7 @@ class PostsCreateViewTests(TestCase):
         
         self.assertEqual(response.status_code, 400)
         data = json.loads(response.content)
-        self.assertEqual(data['error'], 'Validation error: Invalid data')
+        self.assertEqual(data['error'], "Validation error: ['Invalid data']")
 
     @patch('network.models.Post.objects.create')
     def test_create_post_database_error(self, mock_create):
