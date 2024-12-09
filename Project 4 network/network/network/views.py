@@ -5,7 +5,7 @@ from django.db import IntegrityError, DatabaseError, transaction
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from .models import User, Post, Following, Like, Comment
 
 
@@ -130,17 +130,17 @@ def posts(request):
                 'posts': [post.serialize() for post in posts]
             }, status=200)
         
-        except IntegrityError:
+        except ObjectDoesNotExist:
             return JsonResponse({
-                'error': 'Data integrity error, please check your input.'
-            }, status=400)
-        except ValidationError as e:
-            return JsonResponse({
-                'error': f'Validation error: {str(e)}'
-            }, status=400)
+                'error': 'Posts do not exist.'
+            }, status=404)
         except DatabaseError:
             return JsonResponse({
                 'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
             }, status=500)
 
     # Not GET or POST
@@ -169,6 +169,10 @@ def post_detail(request, post_id):
             return JsonResponse({
                 'error': 'Post not found.'
             }, status=404)
+        except DatabaseError:
+            return JsonResponse({
+                'error': 'Database operation error, please try again later.'
+            }, status=500)
         except Exception as e:
             return JsonResponse({
                 'error': str(e)
@@ -260,9 +264,6 @@ def post_detail(request, post_id):
     # Not GET, PATCH or DELETE request
     else:
         return JsonResponse({"error": "Only accept GET, PATCH and DELETE methods."}, status=400)
-
-
-
 
 
 def like(request, post_id):

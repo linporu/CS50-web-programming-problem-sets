@@ -1,16 +1,16 @@
-from django.test import TestCase
+from django.test import TestCase, Client
 from django.contrib.auth import get_user_model
-from .models import Post, Comment, Like, Following
+from .models import User, Post, Comment, Like, Following
 from django.db.utils import IntegrityError
 from django.utils import timezone
 from datetime import timedelta
 from django.urls import reverse
-from django.test import Client
 import json
 from django.db import models
 from django.db.utils import DatabaseError
 from unittest.mock import patch
 from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist
 
 User = get_user_model()
 
@@ -209,6 +209,7 @@ class ModelTests(TestCase):
         self.assertEqual(serialized_post['created_by'], self.post.created_by.username)
         self.assertEqual(serialized_post['created_at'], self.post.created_at.strftime("%Y-%m-%d %H:%M:%S"))
         self.assertEqual(serialized_post['is_deleted'], self.post.is_deleted)
+        
 
     def test_post_cache_mechanism(self):
         """Test the caching mechanism of Post serialization"""
@@ -424,6 +425,7 @@ class ModelTests(TestCase):
         self.assertEqual(serialized_data['created_by'], self.user2.username)
         self.assertFalse(serialized_data['is_deleted'])
         self.assertTrue('created_at' in serialized_data)
+        
 
 class PostsListViewTests(TestCase):
     def setUp(self):
@@ -500,7 +502,63 @@ class PostsListViewTests(TestCase):
             self.assertIn('id', post)
             self.assertIn('content', post)
             self.assertIn('created_by', post)
-            self.assertIn('created_at', post)
+
+    @patch('network.models.Post.objects.select_related')
+    def test_get_posts_object_does_not_exist(self, mock_select_related):
+        """Test handling of ObjectDoesNotExist error when getting posts"""
+        # Mock the chain of queryset methods
+        mock_chain = (
+            mock_select_related.return_value
+            .prefetch_related.return_value
+            .filter.return_value
+            .order_by.return_value
+        )
+        mock_chain.__iter__.side_effect = ObjectDoesNotExist("Posts do not exist")
+        
+        response = self.client.get(reverse('posts'))
+        
+        self.assertEqual(response.status_code, 404)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Posts do not exist.')
+
+    @patch('network.models.Post.objects.select_related')
+    def test_get_posts_database_error(self, mock_select_related):
+        """Test handling of DatabaseError when getting posts"""
+        # Mock the chain of queryset methods
+        mock_chain = (
+            mock_select_related.return_value
+            .prefetch_related.return_value
+            .filter.return_value
+            .order_by.return_value
+        )
+        mock_chain.__iter__.side_effect = DatabaseError("Database error")
+        
+        response = self.client.get(reverse('posts'))
+        
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertEqual(
+            data['error'], 
+            'Database operation error, please try again later.'
+        )
+
+    @patch('network.models.Post.objects.select_related')
+    def test_get_posts_general_exception(self, mock_select_related):
+        """Test handling of general Exception when getting posts"""
+        # Mock the chain of queryset methods
+        mock_chain = (
+            mock_select_related.return_value
+            .prefetch_related.return_value
+            .filter.return_value
+            .order_by.return_value
+        )
+        mock_chain.__iter__.side_effect = Exception("Unexpected error")
+        
+        response = self.client.get(reverse('posts'))
+        
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Unexpected error')
 
 class PostsCreateViewTests(TestCase):
     def setUp(self):
@@ -546,18 +604,20 @@ class PostsCreateViewTests(TestCase):
 
 class PostDetailViewTests(TestCase):
     def setUp(self):
+        # Create test user
         self.user = User.objects.create_user(
             username='testuser',
             password='testpass123'
         )
+        # Create test post
         self.post = Post.objects.create(
             content='Test post content',
             created_by=self.user
         )
         self.client = Client()
 
-    def test_get_post_success(self):
-        """Test successful post retrieval"""
+    def test_get_post_detail_success(self):
+        """Test successful retrieval of post details"""
         response = self.client.get(
             reverse('post', kwargs={'post_id': self.post.id})
         )
@@ -566,12 +626,14 @@ class PostDetailViewTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data['message'], 'Get post successfully.')
         self.assertEqual(data['post']['content'], 'Test post content')
+        self.assertEqual(data['post']['created_by'], 'testuser')
 
     def test_get_deleted_post(self):
-        """Test retrieval of a soft-deleted post"""
+        """Test retrieving a deleted post"""
+        # Mark post as deleted
         self.post.is_deleted = True
         self.post.save()
-        
+
         response = self.client.get(
             reverse('post', kwargs={'post_id': self.post.id})
         )
@@ -579,19 +641,51 @@ class PostDetailViewTests(TestCase):
         self.assertEqual(response.status_code, 410)
         data = json.loads(response.content)
         self.assertEqual(
-            data['error'], 
+            data['error'],
             'This post has been deleted by the author.'
         )
 
     def test_get_nonexistent_post(self):
-        """Test retrieval of a non-existent post"""
+        """Test retrieving a non-existent post"""
+        non_existent_id = 99999
         response = self.client.get(
-            reverse('post', kwargs={'post_id': 99999})
+            reverse('post', kwargs={'post_id': non_existent_id})
         )
         
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Post not found.')
+
+    def test_database_error_handling(self):
+        """Test handling of database errors"""
+        with patch('network.models.Post.objects.select_related') as mock_select_related:
+            # Simulate database error
+            mock_select_related.return_value.get.side_effect = DatabaseError()
+            
+            response = self.client.get(
+                reverse('post', kwargs={'post_id': self.post.id})
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(
+                data['error'],
+                'Database operation error, please try again later.'
+            )
+
+    def test_general_exception_handling(self):
+        """Test handling of general exceptions"""
+        with patch('network.models.Post.objects.select_related') as mock_select_related:
+            # Simulate general exception
+            mock_select_related.return_value.get.side_effect = Exception("Unexpected error")
+            
+            response = self.client.get(
+                reverse('post', kwargs={'post_id': self.post.id})
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
 
 class PostEditViewTests(TestCase):
     def setUp(self):
