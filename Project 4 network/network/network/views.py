@@ -470,9 +470,21 @@ def follow(request, username):
                 }
             }, status=200)
 
+        except IntegrityError:
+            return JsonResponse({
+                'error': 'Data integrity error, please check your input.'
+            }, status=400)
+        except ValidationError as e:
+            return JsonResponse({
+                'error': f'Validation error: {str(e).strip("[]\'")}'
+            }, status=400)
         except DatabaseError:
             return JsonResponse({
                 'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
             }, status=500)
 
     # Unfollow other user
@@ -502,6 +514,10 @@ def follow(request, username):
         except DatabaseError:
             return JsonResponse({
                 'error': 'Database operation error, please try again later.'
+            }, status=500)
+        except Exception as e:
+            return JsonResponse({
+                'error': str(e)
             }, status=500)
 
     # Not POST or DELETE method

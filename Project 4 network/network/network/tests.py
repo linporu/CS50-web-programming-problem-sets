@@ -1747,7 +1747,7 @@ class FollowViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'User not found.')
-
+         
     def test_follow_self(self):
         """Test attempting to follow oneself"""
         self.client.login(username='testuser1', password='testpass123')
@@ -1785,6 +1785,70 @@ class FollowViewTests(TestCase):
             data['error'],
             'You are already following this user.'
         )
+
+    def test_follow_integrity_error(self):
+        """Test integrity error when following user"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Following.objects.create') as mock_create:
+            mock_create.side_effect = IntegrityError("Integrity error")
+            
+            response = self.client.post(
+                reverse('follow', kwargs={'username': 'testuser2'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Data integrity error, please check your input.')
+
+    def test_follow_validation_error(self):
+        """Test validation error when following user"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Following.objects.create') as mock_create:
+            mock_create.side_effect = ValidationError("Validation error")
+            
+            response = self.client.post(
+                reverse('follow', kwargs={'username': 'testuser2'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Validation error: Validation error')
+
+    def test_follow_database_error(self):
+        """Test database error when following user"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Following.objects.create') as mock_create:
+            mock_create.side_effect = DatabaseError("Database error")
+            
+            response = self.client.post(
+                reverse('follow', kwargs={'username': 'testuser2'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation error, please try again later.')
+
+    def test_follow_unexpected_error(self):
+        """Test unexpected error when following user"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        with patch('network.models.Following.objects.create') as mock_create:
+            mock_create.side_effect = Exception("Unexpected error")
+            
+            response = self.client.post(
+                reverse('follow', kwargs={'username': 'testuser2'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Unexpected error')
 
     def test_unfollow_success(self):
         """Test successful unfollow"""
@@ -1833,6 +1897,64 @@ class FollowViewTests(TestCase):
             'You are not following this user.'
         )
 
+    def test_unfollow_database_error(self):
+        """Test database error when unfollowing user"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        # Create initial following relationship
+        Following.objects.create(
+            follower=self.user1,
+            following=self.user2
+        )
+        
+        with patch('network.models.Following.objects.filter') as mock_filter:
+            mock_queryset = MagicMock()
+            mock_queryset.exists.return_value = True
+            mock_queryset.delete.side_effect = DatabaseError()
+            mock_filter.return_value = mock_queryset
+            
+            response = self.client.delete(
+                reverse('follow', kwargs={'username': 'testuser2'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], 'Database operation error, please try again later.')
+            
+            # Verify following relationship still exists
+            self.assertTrue(
+                Following.objects.filter(
+                    follower=self.user1,
+                    following=self.user2
+                ).exists()
+            )
+
+    def test_unfollow_unexpected_error(self):
+        """Test unexpected error when unfollowing user"""
+        self.client.login(username='testuser1', password='testpass123')
+        
+        # Create initial following relationship
+        Following.objects.create(
+            follower=self.user1,
+            following=self.user2
+        )
+        
+        with patch('network.models.Following.objects.filter') as mock_filter:
+            mock_queryset = MagicMock()
+            mock_queryset.exists.return_value = True
+            mock_queryset.delete.side_effect = Exception("Unexpected error")
+            mock_filter.return_value = mock_queryset
+            
+            response = self.client.delete(
+                reverse('follow', kwargs={'username': 'testuser2'}),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 500)
+            data = json.loads(response.content)
+            self.assertEqual(data['error'], str(mock_queryset.delete.side_effect))
+
     def test_invalid_http_method(self):
         """Test invalid HTTP methods"""
         self.client.login(username='testuser1', password='testpass123')
@@ -1851,49 +1973,6 @@ class FollowViewTests(TestCase):
                 data['error'],
                 'Only accept POST and DELETE method.'
             )
-
-    @patch('network.models.Following.objects.create')
-    def test_database_error_follow(self, mock_create):
-        """Test database error during follow operation"""
-        self.client.login(username='testuser1', password='testpass123')
-        
-        mock_create.side_effect = DatabaseError("Database error")
-        
-        response = self.client.post(
-            reverse('follow', kwargs={'username': 'testuser2'}),
-            content_type='application/json'
-        )
-        
-        self.assertEqual(response.status_code, 500)
-        data = json.loads(response.content)
-        self.assertEqual(
-            data['error'],
-            'Database operation error, please try again later.'
-        )
-
-    @patch('network.models.Following.objects.filter')
-    def test_database_error_unfollow(self, mock_filter):
-        """Test database error during unfollow operation"""
-        # Create initial following relationship
-        Following.objects.create(
-            follower=self.user1,
-            following=self.user2
-        )
-        
-        mock_filter.return_value.delete.side_effect = DatabaseError("Database error")
-        self.client.login(username='testuser1', password='testpass123')
-        
-        response = self.client.delete(
-            reverse('follow', kwargs={'username': 'testuser2'}),
-            content_type='application/json'
-        )
-        
-        self.assertEqual(response.status_code, 500)
-        data = json.loads(response.content)
-        self.assertEqual(
-            data['error'],
-            'Database operation error, please try again later.'
-        )
 
 class PostsFollowingViewTests(TestCase):
     def setUp(self):
