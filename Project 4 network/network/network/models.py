@@ -5,11 +5,11 @@ from datetime import timedelta
 
 
 class User(AbstractUser):
-    
+
     @property
     def following_count(self):
         return self.following.count()
-    
+
     @property
     def follower_count(self):
         return self.followers.count()
@@ -40,7 +40,7 @@ class Post(models.Model):
     @property
     def comments_count(self):
         return self.comments.filter(is_deleted=False).count()
-    
+
     def clear_cache(self):
         """Clear the cache"""
         self._cached_serialized_data = None
@@ -50,7 +50,7 @@ class Post(models.Model):
         """Check if the cache is still valid"""
         if self._cache_timestamp is None:
             return False
-        
+
         cache_age = timezone.now() - self._cache_timestamp
         return cache_age.total_seconds() < self.CACHE_TIMEOUT
 
@@ -60,10 +60,12 @@ class Post(models.Model):
         :param force_refresh: Whether to force refresh the cache
         """
         # If force refresh or cache doesn't exist or cache expired
-        if (force_refresh or 
-            self._cached_serialized_data is None or 
-            not self.is_cache_valid()):
-            
+        if (
+            force_refresh
+            or self._cached_serialized_data is None
+            or not self.is_cache_valid()
+        ):
+
             self._cached_serialized_data = {
                 "id": self.id,
                 "content": self.content,
@@ -73,53 +75,41 @@ class Post(models.Model):
                 "is_deleted": self.is_deleted,
                 "likes_count": self.likes_count,
                 "comments": [comment.serialize() for comment in self.comments.all()],
-                "comments_count": self.comments_count
+                "comments_count": self.comments_count,
             }
             self._cache_timestamp = timezone.now()
-            
+
         return self._cached_serialized_data
-    
+
     def save(self, *args, **kwargs):
         """Clear cache when saving"""
         self.clear_cache()  # Clear cache when data is updated
         super().save(*args, **kwargs)
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
 
 
 class Following(models.Model):
     follower = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="following"
+        User, on_delete=models.CASCADE, related_name="following"
     )
     following = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="followers"
+        User, on_delete=models.CASCADE, related_name="followers"
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ['follower', 'following']
+        unique_together = ["follower", "following"]
 
 
 class Like(models.Model):
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="likes"
-    )
-    post = models.ForeignKey(
-        Post,
-        on_delete=models.CASCADE,
-        related_name="likes"
-    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="likes")
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name="likes")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ['user', 'post']
+        unique_together = ["user", "post"]
 
 
 class Comment(models.Model):
@@ -130,9 +120,7 @@ class Comment(models.Model):
     )
     content = models.TextField()
     created_by = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="comments"
+        User, on_delete=models.CASCADE, related_name="comments"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     is_deleted = models.BooleanField(default=False)
@@ -144,9 +132,8 @@ class Comment(models.Model):
             "content": self.content,
             "created_by": self.created_by.username,
             "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "is_deleted": self.is_deleted
+            "is_deleted": self.is_deleted,
         }
 
     class Meta:
-        ordering = ['created_at']
-    
+        ordering = ["created_at"]
