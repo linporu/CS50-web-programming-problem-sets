@@ -1,0 +1,47 @@
+name: Frontend Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # 也可以手動觸發
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./Project 4 network/network-frontend # 調整為你的前端專案目錄
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x] # 可以測試多個 Node.js 版本
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+          cache-dependency-path: "./Project 4 network/network-frontend/package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test:coverage
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        with:
+          directory: ./Project 4 network/network-frontend/coverage
+          flags: frontend
+          name: frontend-tests
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }} # 如果你的 repo 是 private 需要這個
+
