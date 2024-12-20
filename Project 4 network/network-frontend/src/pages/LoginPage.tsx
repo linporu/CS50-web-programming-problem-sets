@@ -1,19 +1,32 @@
 import { useState, FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { loginUser } from "../services/authService";
+import { useAuth } from "../contexts/AuthContext";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const navigate = useNavigate();
+  const { setUser } = useAuth();
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError("");
 
     if (!username || !password) {
       setError("Please fill in all fields");
       return;
     }
 
-    console.log("Form submitted:", { username, password });
+    try {
+      const { user } = await loginUser(username, password);
+      // Save user data to Context
+      setUser(user);
+      navigate("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed");
+    }
   };
 
   return (
