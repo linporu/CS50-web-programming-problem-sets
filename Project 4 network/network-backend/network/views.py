@@ -61,47 +61,55 @@ def login_view(request):
 def logout_view(request):
     if request.user.is_authenticated:
         logout(request)
-        return JsonResponse({
-            "message": "Logged out successfully."
-        }, status=200)
-    return JsonResponse({
-        "error": "No user is currently logged in."
-    }, status=400)
+        return JsonResponse({"message": "Logged out successfully."}, status=200)
+    return JsonResponse({"error": "No user is currently logged in."}, status=400)
 
 
 def register(request):
     if request.method == "POST":
-        username = request.POST["username"]
-        email = request.POST["email"]
-        password = request.POST["password"]
-        confirmation = request.POST["confirmation"]
-
-        # Validate required fields
-        if not username or not email or not password or not confirmation:
-            return render(
-                request,
-                "network/register.html",
-                {"message": "All fields are required."},
-            )
-
-        # Ensure password matches confirmation
-        if password != confirmation:
-            return render(
-                request, "network/register.html", {"message": "Passwords must match."}
-            )
-
-        # Attempt to create new user
         try:
-            user = User.objects.create_user(username, email, password)
-            user.save()
-        except IntegrityError:
-            return render(
-                request, "network/register.html", {"message": "Username already taken."}
-            )
-        login(request, user)
-        return HttpResponseRedirect(reverse("index"))
-    else:
-        return render(request, "network/register.html")
+            data = json.loads(request.body)
+            username = data.get("username")
+            email = data.get("email")
+            password = data.get("password")
+            confirmation = data.get("confirmation")
+
+            # Validate required fields
+            if not username or not email or not password or not confirmation:
+                return JsonResponse({"error": "All fields are required."}, status=400)
+
+            # Ensure password matches confirmation
+            if password != confirmation:
+                return JsonResponse({"error": "Passwords must match."}, status=400)
+
+            # Attempt to create new user
+            try:
+                user = User.objects.create_user(username, email, password)
+                user.save()
+                login(request, user)
+
+                return JsonResponse(
+                    {
+                        "message": "Registration successful",
+                        "user": {
+                            "id": user.id,
+                            "username": user.username,
+                            "email": user.email,
+                            "following_count": user.following_count,
+                            "follower_count": user.follower_count,
+                        },
+                    },
+                    status=201,
+                )
+
+            except IntegrityError:
+                return JsonResponse({"error": "Username already taken."}, status=400)
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data."}, status=400)
+
+    # If not POST method
+    return JsonResponse({"error": "POST request required."}, status=405)
 
 
 def posts(request):

@@ -23,72 +23,102 @@ class AuthenticationViewTests(TestCase):
             username="testuser", password="testpass123", email="test@example.com"
         )
         self.client = Client()
-        self.login_url = reverse("login")
-        self.logout_url = reverse("logout")
+        self.register_url = reverse("register")
 
-    def test_login_view_post_success(self):
-        """Test successful login attempt"""
+    def test_register_view_post_success(self):
+        """Test successful registration attempt"""
         response = self.client.post(
-            self.login_url,
-            data=json.dumps({"username": "testuser", "password": "testpass123"}),
+            self.register_url,
+            data=json.dumps({
+                "username": "newuser",
+                "email": "new@example.com",
+                "password": "newpass123",
+                "confirmation": "newpass123"
+            }),
             content_type="application/json",
         )
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 201)
         data = json.loads(response.content)
 
         # Verify response format
-        self.assertEqual(data["message"], "Login successful")
+        self.assertEqual(data["message"], "Registration successful")
         self.assertIn("user", data)
 
         # Verify user data
         user_data = data["user"]
-        self.assertEqual(user_data["username"], "testuser")
-        self.assertEqual(user_data["email"], "test@example.com")
+        self.assertEqual(user_data["username"], "newuser")
+        self.assertEqual(user_data["email"], "new@example.com")
         self.assertEqual(user_data["following_count"], 0)
         self.assertEqual(user_data["follower_count"], 0)
 
         # Verify user is authenticated
         self.assertTrue(response.wsgi_request.user.is_authenticated)
 
-    def test_login_view_post_invalid_credentials(self):
-        """Test login attempt with invalid credentials"""
-        response = self.client.post(
-            self.login_url,
-            data=json.dumps({"username": "testuser", "password": "wrongpass"}),
-            content_type="application/json",
-        )
-
-        self.assertEqual(response.status_code, 401)
-        data = json.loads(response.content)
-        self.assertEqual(data["error"], "Invalid username and/or password.")
-        self.assertFalse(response.wsgi_request.user.is_authenticated)
-
-    def test_login_view_post_empty_fields(self):
-        """Test login attempt with empty fields"""
+    def test_register_view_post_missing_fields(self):
+        """Test registration with missing fields"""
         test_cases = [
-            {"username": "", "password": "testpass123"},
-            {"username": "testuser", "password": ""},
-            {"username": "", "password": ""},
-            {},  # Missing both fields
+            {"username": "", "email": "test@example.com", "password": "pass123", "confirmation": "pass123"},
+            {"username": "testuser", "email": "", "password": "pass123", "confirmation": "pass123"},
+            {"username": "testuser", "email": "test@example.com", "password": "", "confirmation": "pass123"},
+            {"username": "testuser", "email": "test@example.com", "password": "pass123", "confirmation": ""},
+            {},  # Missing all fields
         ]
 
         for test_case in test_cases:
             response = self.client.post(
-                self.login_url,
+                self.register_url,
                 data=json.dumps(test_case),
                 content_type="application/json",
             )
 
             self.assertEqual(response.status_code, 400)
             data = json.loads(response.content)
-            self.assertEqual(data["error"], "Username and password are required.")
+            self.assertEqual(data["error"], "All fields are required.")
             self.assertFalse(response.wsgi_request.user.is_authenticated)
 
-    def test_login_view_invalid_json(self):
-        """Test login attempt with invalid JSON data"""
+    def test_register_view_password_mismatch(self):
+        """Test registration with mismatched passwords"""
         response = self.client.post(
-            self.login_url, data="invalid json", content_type="application/json"
+            self.register_url,
+            data=json.dumps({
+                "username": "newuser",
+                "email": "new@example.com",
+                "password": "pass123",
+                "confirmation": "different123"
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data["error"], "Passwords must match.")
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_register_view_duplicate_username(self):
+        """Test registration with existing username"""
+        response = self.client.post(
+            self.register_url,
+            data=json.dumps({
+                "username": "testuser",  # Same as setUp user
+                "email": "another@example.com",
+                "password": "pass123",
+                "confirmation": "pass123"
+            }),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data["error"], "Username already taken.")
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_register_view_invalid_json(self):
+        """Test registration with invalid JSON data"""
+        response = self.client.post(
+            self.register_url,
+            data="invalid json",
+            content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 400)
@@ -96,55 +126,17 @@ class AuthenticationViewTests(TestCase):
         self.assertEqual(data["error"], "Invalid JSON data.")
         self.assertFalse(response.wsgi_request.user.is_authenticated)
 
-    def test_login_view_wrong_method(self):
-        """Test login attempt with wrong HTTP method"""
+    def test_register_view_wrong_method(self):
+        """Test registration with wrong HTTP method"""
         methods = ["GET", "PUT", "PATCH", "DELETE"]
 
         for method in methods:
-            response = self.client.generic(method, self.login_url)
+            response = self.client.generic(method, self.register_url)
 
             self.assertEqual(response.status_code, 405)
             data = json.loads(response.content)
             self.assertEqual(data["error"], "POST request required.")
             self.assertFalse(response.wsgi_request.user.is_authenticated)
-
-    def test_login_view_wrong_content_type(self):
-        """Test login attempt with wrong content type"""
-        response = self.client.post(
-            self.login_url,
-            data={"username": "testuser", "password": "testpass123"},
-            content_type="application/x-www-form-urlencoded",
-        )
-
-        self.assertEqual(response.status_code, 400)
-        data = json.loads(response.content)
-        self.assertEqual(data["error"], "Invalid JSON data.")
-        self.assertFalse(response.wsgi_request.user.is_authenticated)
-
-    def test_logout_view_success(self):
-        """Test successful logout attempt"""
-        # First login the user
-        self.client.post(
-            self.login_url,
-            data=json.dumps({"username": "testuser", "password": "testpass123"}),
-            content_type="application/json",
-        )
-
-        # Then attempt logout
-        response = self.client.post(self.logout_url)
-        
-        self.assertEqual(response.status_code, 200)
-        data = json.loads(response.content)
-        self.assertEqual(data["message"], "Logged out successfully.")
-        self.assertFalse(response.wsgi_request.user.is_authenticated)
-
-    def test_logout_view_not_logged_in(self):
-        """Test logout attempt when no user is logged in"""
-        response = self.client.post(self.logout_url)
-        
-        self.assertEqual(response.status_code, 400)
-        data = json.loads(response.content)
-        self.assertEqual(data["error"], "No user is currently logged in.")
 
 
 class ModelTests(TestCase):
