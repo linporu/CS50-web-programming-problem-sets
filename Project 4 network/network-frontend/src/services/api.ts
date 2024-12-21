@@ -13,11 +13,23 @@ export const fetchWithConfig = async (
     },
   });
 
-  const data = await response.json();
+  // First check if response has content
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
+    const data = await response.json();
 
-  if (!response.ok) {
-    throw new Error(data.error);
+    // Handle error responses
+    if (!response.ok) {
+      throw new Error(data.error || "An error occurred");
+    }
+
+    return data;
   }
 
-  return data;
+  // Handle non-JSON responses
+  if (!response.ok) {
+    throw new Error("Network response was not ok");
+  }
+
+  return null;
 };
