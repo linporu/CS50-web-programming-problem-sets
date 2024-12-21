@@ -1,11 +1,10 @@
 import json
-from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.db import IntegrityError, DatabaseError, transaction
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
-from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from django.core.exceptions import ValidationError
 from .models import User, Post, Following, Like, Comment
 
 
@@ -15,24 +14,48 @@ def index(request):
 
 def login_view(request):
     if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            username = data.get("username")
+            password = data.get("password")
 
-        # Attempt to sign user in
-        username = request.POST["username"]
-        password = request.POST["password"]
-        user = authenticate(request, username=username, password=password)
+            # Validate input
+            if not username or not password:
+                return JsonResponse(
+                    {"error": "Username and password are required."}, status=400
+                )
 
-        # Check if authentication successful
-        if user is not None:
-            login(request, user)
-            return HttpResponseRedirect(reverse("index"))
-        else:
-            return render(
-                request,
-                "network/login.html",
-                {"message": "Invalid username and/or password."},
-            )
-    else:
-        return render(request, "network/login.html")
+            # Attempt to authenticate user
+            user = authenticate(request, username=username, password=password)
+
+            # Check if authentication successful
+            if user is not None:
+                login(request, user)
+                return JsonResponse(
+                    {
+                        "message": "Login successful",
+                        "user": {
+                            "id": user.id,
+                            "username": user.username,
+                            "email": user.email,
+                            "following_count": user.following_count,
+                            "follower_count": user.follower_count,
+                        },
+                    },
+                    status=200,
+                )
+            else:
+                return JsonResponse(
+                    {"error": "Invalid username and/or password."}, status=401
+                )
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data."}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    # If not POST method
+    return JsonResponse({"error": "POST request required."}, status=405)
 
 
 def logout_view(request):
