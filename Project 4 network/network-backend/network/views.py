@@ -6,6 +6,17 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.core.exceptions import ValidationError
 from .models import User, Post, Following, Like, Comment
+from django.middleware.csrf import get_token
+
+
+def index(request):
+    return render(request, "network/index.html")
+
+
+def csrf(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "GET request required."}, status=405)
+    return JsonResponse({"csrfToken": get_token(request)})
 
 
 def login_view(request):
