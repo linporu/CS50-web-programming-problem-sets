@@ -59,8 +59,14 @@ def login_view(request):
 
 
 def logout_view(request):
-    logout(request)
-    return HttpResponseRedirect(reverse("index"))
+    if request.user.is_authenticated:
+        logout(request)
+        return JsonResponse({
+            "message": "Logged out successfully."
+        }, status=200)
+    return JsonResponse({
+        "error": "No user is currently logged in."
+    }, status=400)
 
 
 def register(request):

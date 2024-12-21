@@ -24,6 +24,7 @@ class AuthenticationViewTests(TestCase):
         )
         self.client = Client()
         self.login_url = reverse("login")
+        self.logout_url = reverse("logout")
 
     def test_login_view_post_success(self):
         """Test successful login attempt"""
@@ -119,6 +120,31 @@ class AuthenticationViewTests(TestCase):
         data = json.loads(response.content)
         self.assertEqual(data["error"], "Invalid JSON data.")
         self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_logout_view_success(self):
+        """Test successful logout attempt"""
+        # First login the user
+        self.client.post(
+            self.login_url,
+            data=json.dumps({"username": "testuser", "password": "testpass123"}),
+            content_type="application/json",
+        )
+
+        # Then attempt logout
+        response = self.client.post(self.logout_url)
+        
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data["message"], "Logged out successfully.")
+        self.assertFalse(response.wsgi_request.user.is_authenticated)
+
+    def test_logout_view_not_logged_in(self):
+        """Test logout attempt when no user is logged in"""
+        response = self.client.post(self.logout_url)
+        
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertEqual(data["error"], "No user is currently logged in.")
 
 
 class ModelTests(TestCase):
