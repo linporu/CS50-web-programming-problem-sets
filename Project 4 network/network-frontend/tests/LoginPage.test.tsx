@@ -2,7 +2,6 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BrowserRouter } from "react-router-dom";
 import LoginPage from "../src/pages/LoginPage";
-import { AuthProvider } from "../src/contexts/AuthContext";
 import * as authService from "../src/services/authService";
 import { describe, expect, beforeEach, vi, test } from "vitest";
 import React from "react";
@@ -20,12 +19,21 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
+// Mock AuthContext
+const mockSetUser = vi.fn();
+vi.mock("../src/contexts/AuthContext", () => ({
+  useAuth: () => ({
+    setUser: mockSetUser,
+    user: null,
+    loading: false,
+  }),
+  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
 const renderLoginPage = () => {
   return render(
     <BrowserRouter>
-      <AuthProvider>
-        <LoginPage />
-      </AuthProvider>
+      <LoginPage />
     </BrowserRouter>
   );
 };
