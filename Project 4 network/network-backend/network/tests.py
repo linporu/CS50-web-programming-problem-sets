@@ -29,12 +29,14 @@ class AuthenticationViewTests(TestCase):
         """Test successful registration attempt"""
         response = self.client.post(
             self.register_url,
-            data=json.dumps({
-                "username": "newuser",
-                "email": "new@example.com",
-                "password": "newpass123",
-                "confirmation": "newpass123"
-            }),
+            data=json.dumps(
+                {
+                    "username": "newuser",
+                    "email": "new@example.com",
+                    "password": "newpass123",
+                    "confirmation": "newpass123",
+                }
+            ),
             content_type="application/json",
         )
 
@@ -58,10 +60,30 @@ class AuthenticationViewTests(TestCase):
     def test_register_view_post_missing_fields(self):
         """Test registration with missing fields"""
         test_cases = [
-            {"username": "", "email": "test@example.com", "password": "pass123", "confirmation": "pass123"},
-            {"username": "testuser", "email": "", "password": "pass123", "confirmation": "pass123"},
-            {"username": "testuser", "email": "test@example.com", "password": "", "confirmation": "pass123"},
-            {"username": "testuser", "email": "test@example.com", "password": "pass123", "confirmation": ""},
+            {
+                "username": "",
+                "email": "test@example.com",
+                "password": "pass123",
+                "confirmation": "pass123",
+            },
+            {
+                "username": "testuser",
+                "email": "",
+                "password": "pass123",
+                "confirmation": "pass123",
+            },
+            {
+                "username": "testuser",
+                "email": "test@example.com",
+                "password": "",
+                "confirmation": "pass123",
+            },
+            {
+                "username": "testuser",
+                "email": "test@example.com",
+                "password": "pass123",
+                "confirmation": "",
+            },
             {},  # Missing all fields
         ]
 
@@ -81,12 +103,14 @@ class AuthenticationViewTests(TestCase):
         """Test registration with mismatched passwords"""
         response = self.client.post(
             self.register_url,
-            data=json.dumps({
-                "username": "newuser",
-                "email": "new@example.com",
-                "password": "pass123",
-                "confirmation": "different123"
-            }),
+            data=json.dumps(
+                {
+                    "username": "newuser",
+                    "email": "new@example.com",
+                    "password": "pass123",
+                    "confirmation": "different123",
+                }
+            ),
             content_type="application/json",
         )
 
@@ -99,12 +123,14 @@ class AuthenticationViewTests(TestCase):
         """Test registration with existing username"""
         response = self.client.post(
             self.register_url,
-            data=json.dumps({
-                "username": "testuser",  # Same as setUp user
-                "email": "another@example.com",
-                "password": "pass123",
-                "confirmation": "pass123"
-            }),
+            data=json.dumps(
+                {
+                    "username": "testuser",  # Same as setUp user
+                    "email": "another@example.com",
+                    "password": "pass123",
+                    "confirmation": "pass123",
+                }
+            ),
             content_type="application/json",
         )
 
@@ -153,13 +179,49 @@ class AuthenticationViewTests(TestCase):
         response = self.client.post(reverse("csrf"))
         self.assertEqual(response.status_code, 405)
 
-        # Test PUT request 
+        # Test PUT request
         response = self.client.put(reverse("csrf"))
         self.assertEqual(response.status_code, 405)
 
         # Test DELETE request
         response = self.client.delete(reverse("csrf"))
         self.assertEqual(response.status_code, 405)
+
+    def test_check_auth_view_authenticated(self):
+        """Test check_auth view when user is authenticated"""
+        # Log in the test user
+        self.client.force_login(self.user)
+
+        response = self.client.get(reverse("check_auth"))
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+
+        # Verify response structure and content
+        self.assertEqual(data["message"], "User is authenticated")
+        self.assertIn("user", data)
+        user_data = data["user"]
+        self.assertEqual(user_data["id"], self.user.id)
+        self.assertEqual(user_data["username"], self.user.username)
+        self.assertEqual(user_data["email"], self.user.email)
+        self.assertEqual(user_data["following_count"], self.user.following_count)
+        self.assertEqual(user_data["follower_count"], self.user.follower_count)
+
+    def test_check_auth_view_unauthenticated(self):
+        """Test check_auth view when user is not authenticated"""
+        response = self.client.get(reverse("check_auth"))
+        self.assertEqual(response.status_code, 401)
+        data = json.loads(response.content)
+        self.assertEqual(data["error"], "User not authenticated")
+
+    def test_check_auth_view_wrong_method(self):
+        """Test check_auth view with wrong HTTP methods"""
+        methods = ["POST", "PUT", "PATCH", "DELETE"]
+
+        for method in methods:
+            response = self.client.generic(method, reverse("check_auth"))
+            self.assertEqual(response.status_code, 405)
+            data = json.loads(response.content)
+            self.assertEqual(data["error"], "GET request required.")
 
 
 class ModelTests(TestCase):
@@ -2467,6 +2529,3 @@ class CommentDetailViewTests(TestCase):
             self.assertEqual(response.status_code, 500)
             data = json.loads(response.content)
             self.assertEqual(data["error"], "Unexpected error")
-
-
-    

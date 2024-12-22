@@ -1,6 +1,6 @@
 import { fetchWithConfig } from "./api";
 
-interface LoginResponse {
+export interface LoginResponse {
   message: string;
   user: {
     id: number;
@@ -23,4 +23,11 @@ export const logoutUser = async () => {
   return fetchWithConfig("/logout", {
     method: "POST",
   });
+};
+
+export const checkAuthStatus = async () => {
+  const data = await fetchWithConfig("check_auth", {
+    method: "GET",
+  });
+  return data as LoginResponse;
 };

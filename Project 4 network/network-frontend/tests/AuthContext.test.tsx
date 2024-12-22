@@ -1,23 +1,38 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { AuthProvider, useAuth } from "../src/contexts/AuthContext";
+import React from "react";
 
 describe("AuthContext", () => {
-  it("provides user state and setUser function", () => {
+  it("provides user state and setUser function", async () => {
     const { result } = renderHook(() => useAuth(), {
-      wrapper: AuthProvider,
+      wrapper: ({ children }) => <AuthProvider>{children}</AuthProvider>,
+    });
+
+    await act(async () => {
+      // Wait for any pending state updates
     });
 
     expect(result.current.user).toBe(null);
     expect(typeof result.current.setUser).toBe("function");
   });
 
-  it("updates user state when setUser is called", () => {
+  it("updates user state when setUser is called", async () => {
     const { result } = renderHook(() => useAuth(), {
-      wrapper: AuthProvider,
+      wrapper: ({ children }) => <AuthProvider>{children}</AuthProvider>,
     });
 
-    const testUser = { username: "testuser", email: "test@example.com" };
+    await act(async () => {
+      // Wait for any pending state updates
+    });
+
+    const testUser = {
+      id: 1,
+      username: "testuser",
+      email: "test@example.com",
+      following_count: 0,
+      follower_count: 0,
+    };
 
     act(() => {
       result.current.setUser(testUser);
@@ -27,8 +42,14 @@ describe("AuthContext", () => {
   });
 
   it("throws error when useAuth is used outside of AuthProvider", () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
     expect(() => {
       renderHook(() => useAuth());
     }).toThrow("useAuth must be used within an AuthProvider");
+
+    consoleError.mockRestore();
   });
 });

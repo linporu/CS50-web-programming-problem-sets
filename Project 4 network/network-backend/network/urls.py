@@ -8,6 +8,8 @@ urlpatterns = [
     path("login", views.login_view, name="login"),
     path("logout", views.logout_view, name="logout"),
     path("register", views.register, name="register"),
+    path("csrf", views.csrf, name="csrf"),
+    path("check_auth", views.check_auth, name="check_auth"),
     # Posts API
     path("api/posts", views.posts, name="posts"),
     path("api/posts/following", views.posts_following, name="posts_following"),
@@ -19,6 +21,4 @@ urlpatterns = [
     # Users API
     path("api/users/<str:username>", views.user_detail, name="user_detail"),
     path("api/users/<str:username>/follow", views.follow, name="follow"),
-    # CSRF
-    path("csrf", views.csrf, name="csrf"),
 ]
