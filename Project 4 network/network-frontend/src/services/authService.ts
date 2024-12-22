@@ -1,10 +1,22 @@
 import { fetchWithConfig } from "./api";
 
+interface LoginResponse {
+  message: string;
+  user: {
+    id: number;
+    username: string;
+    email: string;
+    following_count: number;
+    follower_count: number;
+  };
+}
+
 export const loginUser = async (username: string, password: string) => {
-  return fetchWithConfig("/login", {
+  const data = await fetchWithConfig("login", {
     method: "POST",
     body: JSON.stringify({ username, password }),
   });
+  return data as LoginResponse;
 };
 
 export const logoutUser = async () => {

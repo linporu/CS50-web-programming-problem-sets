@@ -138,6 +138,29 @@ class AuthenticationViewTests(TestCase):
             self.assertEqual(data["error"], "POST request required.")
             self.assertFalse(response.wsgi_request.user.is_authenticated)
 
+    def test_csrf_view_returns_token(self):
+        """Test that csrf view returns a CSRF token"""
+        response = self.client.get(reverse("csrf"))
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertIn("csrfToken", data)
+        self.assertIsInstance(data["csrfToken"], str)
+        self.assertTrue(len(data["csrfToken"]) > 0)
+
+    def test_csrf_view_accepts_get_only(self):
+        """Test that csrf view only accepts GET requests"""
+        # Test POST request
+        response = self.client.post(reverse("csrf"))
+        self.assertEqual(response.status_code, 405)
+
+        # Test PUT request 
+        response = self.client.put(reverse("csrf"))
+        self.assertEqual(response.status_code, 405)
+
+        # Test DELETE request
+        response = self.client.delete(reverse("csrf"))
+        self.assertEqual(response.status_code, 405)
+
 
 class ModelTests(TestCase):
     def setUp(self):
@@ -2444,3 +2467,6 @@ class CommentDetailViewTests(TestCase):
             self.assertEqual(response.status_code, 500)
             data = json.loads(response.content)
             self.assertEqual(data["error"], "Unexpected error")
+
+
+    
