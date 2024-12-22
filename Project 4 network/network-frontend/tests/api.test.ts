@@ -10,7 +10,7 @@ describe("API Service", () => {
       value: "",
     });
     // Reset CSRF token initialization state
-    // @ts-ignore - accessing private variable for testing
+    // @ts-expect-error Accessing private variable for testing purposes
     global.csrfTokenInitialized = false;
   });
 
@@ -102,7 +102,7 @@ describe("API Service", () => {
   });
 
   it("initializes CSRF token when not present", async () => {
-    // @ts-ignore - accessing private variable for testing
+    // @ts-expect-error Accessing private variable for testing purposes
     global.csrfTokenInitialized = false;
 
     const mockFetch = vi

@@ -12,15 +12,11 @@ interface LoginResponse {
 }
 
 export const loginUser = async (username: string, password: string) => {
-  try {
-    const data = await fetchWithConfig("login", {
-      method: "POST",
-      body: JSON.stringify({ username, password }),
-    });
-    return data as LoginResponse;
-  } catch (error) {
-    throw error;
-  }
+  const data = await fetchWithConfig("login", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+  return data as LoginResponse;
 };
 
 export const logoutUser = async () => {

@@ -83,8 +83,17 @@ describe("LoginPage", () => {
 
   // Test successful login
   test("handles successful login and navigation", async () => {
-    const mockUser = { username: "testuser", email: "test@example.com" };
-    vi.mocked(authService.loginUser).mockResolvedValueOnce({ user: mockUser });
+    const mockUser = {
+      id: 1,
+      username: "testuser",
+      email: "test@example.com",
+      following_count: 0,
+      follower_count: 0,
+    };
+    vi.mocked(authService.loginUser).mockResolvedValueOnce({
+      user: mockUser,
+      message: ""
+    });
 
     renderLoginPage();
 
