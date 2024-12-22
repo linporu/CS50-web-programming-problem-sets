@@ -1,9 +1,19 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import { checkAuthStatus } from "../services/authService";
 
-// Define user type
+// Update User interface to match LoginResponse
 interface User {
+  id: number;
   username: string;
   email: string;
+  following_count: number;
+  follower_count: number;
 }
 
 // Define Context type
@@ -12,25 +22,51 @@ interface AuthContextType {
   setUser: (user: User | null) => void;
   isAuthenticated: boolean;
   logout: () => void;
+  loading?: boolean;
+  _isDefault?: boolean;
 }
 
-// Create Context
-const AuthContext = createContext<AuthContextType | null>(null);
+// Add a flag to identify default context
+const defaultContextValue: AuthContextType = {
+  user: null,
+  setUser: () => {},
+  isAuthenticated: false,
+  logout: () => {},
+};
+
+const AuthContext = createContext<AuthContextType>({
+  ...defaultContextValue,
+  _isDefault: true,
+});
 
 // Context Provider component
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Compute isAuthenticated based on user state
+  useEffect(() => {
+    const verifyAuth = async () => {
+      try {
+        const response = await checkAuthStatus();
+        setUser(response.user);
+      } catch (error) {
+        console.error("Auth verification failed:", error);
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifyAuth();
+  }, []);
+
   const isAuthenticated = user !== null;
-
-  // Add logout function
   const logout = () => {
     setUser(null);
-    // Clear any other auth-related data from localStorage if needed
     localStorage.removeItem("user");
   };
 
+  // Important: Provide Context even during loading
   return (
     <AuthContext.Provider
       value={{
@@ -38,9 +74,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser,
         isAuthenticated,
         logout,
+        _isDefault: false, // Value provided by Provider is not default
       }}
     >
-      {children}
+      {loading ? <div>Loading...</div> : children}
     </AuthContext.Provider>
   );
 }
@@ -48,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 // Custom Hook to make it easier for other components to use the Context
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (!context || context._isDefault) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
