@@ -24,3 +24,14 @@ export const logoutUser = async () => {
     method: "POST",
   });
 };
+
+export const checkAuthStatus = async () => {
+  try {
+    const data = await fetchWithConfig("check_auth", {
+      method: "GET",
+    });
+    return data as LoginResponse;
+  } catch (error) {
+    throw error;
+  }
+};

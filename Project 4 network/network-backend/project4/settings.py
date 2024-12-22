@@ -132,9 +132,11 @@ STATIC_URL = "/static/"
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = False
 CSRF_TRUSTED_ORIGINS = ["http://localhost:5173"]
+CSRF_TRUSTED_ORIGINS = ["http://localhost:5174"]
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # Vite default port
+    "http://localhost:5174",
 ]
 
 CORS_ALLOW_CREDENTIALS = True

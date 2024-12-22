@@ -92,7 +92,7 @@ describe("LoginPage", () => {
     };
     vi.mocked(authService.loginUser).mockResolvedValueOnce({
       user: mockUser,
-      message: ""
+      message: "",
     });
 
     renderLoginPage();

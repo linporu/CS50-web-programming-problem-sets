@@ -13,12 +13,6 @@ def index(request):
     return render(request, "network/index.html")
 
 
-def csrf(request):
-    if request.method != "GET":
-        return JsonResponse({"error": "GET request required."}, status=405)
-    return JsonResponse({"csrfToken": get_token(request)})
-
-
 def login_view(request):
     if request.method == "POST":
         try:
@@ -117,6 +111,33 @@ def register(request):
 
     # If not POST method
     return JsonResponse({"error": "POST request required."}, status=405)
+
+
+def csrf(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "GET request required."}, status=405)
+    return JsonResponse({"csrfToken": get_token(request)})
+
+
+def check_auth(request):
+    if request.method != "GET":
+        return JsonResponse({"error": "GET request required."}, status=405)
+
+    if request.user.is_authenticated:
+        return JsonResponse(
+            {
+                "message": "User is authenticated",
+                "user": {
+                    "id": request.user.id,
+                    "username": request.user.username,
+                    "email": request.user.email,
+                    "following_count": request.user.following_count,
+                    "follower_count": request.user.follower_count,
+                },
+            }
+        )
+    else:
+        return JsonResponse({"error": "User not authenticated"}, status=401)
 
 
 def posts(request):
