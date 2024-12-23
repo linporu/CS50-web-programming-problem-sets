@@ -1,17 +1,15 @@
-from django.test import TestCase, Client
-from django.contrib.auth import get_user_model
-from .models import User, Post, Comment, Like, Following
-from django.db.utils import IntegrityError
-from django.utils import timezone
-from datetime import timedelta
-from django.urls import reverse
 import json
-from django.db import models
-from django.db.utils import DatabaseError
-from unittest.mock import patch, MagicMock
+from datetime import timedelta
+from unittest.mock import MagicMock, patch
+
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.core.exceptions import ObjectDoesNotExist
-from django.db import transaction
+from django.db.utils import DatabaseError, IntegrityError
+from django.test import Client, TestCase
+from django.urls import reverse
+from django.utils import timezone
+
+from .models import Comment, Following, Like, Post
 
 User = get_user_model()
 
@@ -227,17 +225,11 @@ class AuthenticationViewTests(TestCase):
 class ModelTests(TestCase):
     def setUp(self):
         # Create test users
-        self.user1 = User.objects.create_user(
-            username="testuser1", password="testpass123"
-        )
-        self.user2 = User.objects.create_user(
-            username="testuser2", password="testpass123"
-        )
+        self.user1 = User.objects.create_user(username="testuser1", password="testpass123")
+        self.user2 = User.objects.create_user(username="testuser2", password="testpass123")
 
         # Create test post
-        self.post = Post.objects.create(
-            content="Test post content", created_by=self.user1
-        )
+        self.post = Post.objects.create(content="Test post content", created_by=self.user1)
 
     def test_create_post(self):
         """Test post creation"""
@@ -260,7 +252,7 @@ class ModelTests(TestCase):
 
     def test_like_post(self):
         """Test post like functionality"""
-        like = Like.objects.create(user=self.user2, post=self.post)
+        Like.objects.create(user=self.user2, post=self.post)
 
         self.assertEqual(self.post.likes_count, 1)
 
@@ -270,7 +262,7 @@ class ModelTests(TestCase):
 
     def test_follow_user(self):
         """Test follow functionality"""
-        following = Following.objects.create(
+        Following.objects.create(
             follower=self.user1, following=self.user2  # user1 follows user2
         )
 
@@ -372,9 +364,7 @@ class ModelTests(TestCase):
         self.assertEqual(self.post.comments_count, 0)
 
         # Add new comment after soft deletes
-        Comment.objects.create(
-            post=self.post, content="Test comment 3", created_by=self.user2
-        )
+        Comment.objects.create(post=self.post, content="Test comment 3", created_by=self.user2)
         self.assertEqual(self.post.comments_count, 1)
 
     def test_post_serialize(self):
@@ -447,26 +437,21 @@ class ModelTests(TestCase):
     def test_cache_timeout(self):
         """Test cache timeout mechanism"""
         # Initial serialization
-        initial_data = self.post.serialize()
+        self.post.serialize()  # Store serialized data in cache
         initial_timestamp = self.post._cache_timestamp
 
         # Verify cache is valid
         self.assertTrue(self.post.is_cache_valid())
 
         # Simulate cache about to expire (set time to 24 hours later)
-        self.post._cache_timestamp = timezone.now() - timedelta(
-            seconds=Post.CACHE_TIMEOUT - 1
-        )
+        self.post._cache_timestamp = timezone.now() - timedelta(seconds=Post.CACHE_TIMEOUT - 1)
         self.assertTrue(self.post.is_cache_valid())  # Not expired yet
 
         # Simulate expired cache
-        self.post._cache_timestamp = timezone.now() - timedelta(
-            seconds=Post.CACHE_TIMEOUT + 1
-        )
+        self.post._cache_timestamp = timezone.now() - timedelta(seconds=Post.CACHE_TIMEOUT + 1)
         self.assertFalse(self.post.is_cache_valid())  # Expired
-
         # Verify cache is regenerated after expiration
-        new_data = self.post.serialize()
+        self.post.serialize()  # No need to store unused variable
         self.assertNotEqual(self.post._cache_timestamp, initial_timestamp)
 
     def test_cache_invalidation_scenarios(self):
@@ -494,10 +479,10 @@ class ModelTests(TestCase):
     def test_post_serialize_with_comments(self):
         """Test serialization of post with comments"""
         # Create test comments
-        comment1 = Comment.objects.create(
+        self.comment1 = Comment.objects.create(
             post=self.post, content="Test comment 1", created_by=self.user2
         )
-        comment2 = Comment.objects.create(
+        self.comment2 = Comment.objects.create(
             post=self.post,
             content="Test comment 2",
             created_by=self.user2,
@@ -508,9 +493,7 @@ class ModelTests(TestCase):
         serialized_data = self.post.serialize()
 
         # Verify comment-related data
-        self.assertEqual(
-            serialized_data["comments_count"], 1
-        )  # Only count non-deleted comments
+        self.assertEqual(serialized_data["comments_count"], 1)  # Only count non-deleted comments
         self.assertEqual(len(serialized_data["comments"]), 2)  # But return all comments
 
         # Verify comment serialization format
@@ -537,9 +520,7 @@ class ModelTests(TestCase):
         initial_comments_count = initial_data["comments_count"]
 
         # Add new comment
-        Comment.objects.create(
-            post=self.post, content="New comment", created_by=self.user2
-        )
+        Comment.objects.create(post=self.post, content="New comment", created_by=self.user2)
 
         # Use cached serialized data
         cached_data = self.post.serialize()
@@ -552,12 +533,11 @@ class ModelTests(TestCase):
     def test_post_serialize_with_deleted_comments(self):
         """Test serialization with soft-deleted comments"""
         # Create active comment
-        active_comment = Comment.objects.create(
+        Comment.objects.create(
             post=self.post, content="Active comment", created_by=self.user2
         )
-
         # Create deleted comment
-        deleted_comment = Comment.objects.create(
+        Comment.objects.create(
             post=self.post,
             content="Deleted comment",
             created_by=self.user2,
@@ -603,9 +583,7 @@ class ModelTests(TestCase):
 class PostsListViewTests(TestCase):
     def setUp(self):
         # Create test user
-        self.user = User.objects.create_user(
-            username="testuser", password="testpassword"
-        )
+        self.user = User.objects.create_user(username="testuser", password="testpassword")
 
         # Create test posts
         self.post1 = Post.objects.create(
@@ -676,7 +654,8 @@ class PostsListViewTests(TestCase):
         """Test handling of Post.DoesNotExist error when getting posts"""
         # Mock the chain of queryset methods
         mock_chain = (
-            mock_select_related.return_value.prefetch_related.return_value.filter.return_value.order_by.return_value
+            mock_select_related.return_value.prefetch_related.return_value.filter.return_value
+            .order_by.return_value
         )
         mock_chain.__iter__.side_effect = Post.DoesNotExist("Posts do not exist")
 
@@ -691,7 +670,8 @@ class PostsListViewTests(TestCase):
         """Test handling of DatabaseError when getting posts"""
         # Mock the chain of queryset methods
         mock_chain = (
-            mock_select_related.return_value.prefetch_related.return_value.filter.return_value.order_by.return_value
+            mock_select_related.return_value.prefetch_related.return_value.filter.return_value
+            .order_by.return_value
         )
         mock_chain.__iter__.side_effect = DatabaseError("Database error")
 
@@ -699,16 +679,15 @@ class PostsListViewTests(TestCase):
 
         self.assertEqual(response.status_code, 500)
         data = json.loads(response.content)
-        self.assertEqual(
-            data["error"], "Database operation error, please try again later."
-        )
+        self.assertEqual(data["error"], "Database operation error, please try again later.")
 
     @patch("network.models.Post.objects.select_related")
     def test_get_posts_general_exception(self, mock_select_related):
         """Test handling of general Exception when getting posts"""
         # Mock the chain of queryset methods
         mock_chain = (
-            mock_select_related.return_value.prefetch_related.return_value.filter.return_value.order_by.return_value
+            mock_select_related.return_value.prefetch_related.return_value.filter.return_value
+            .order_by.return_value
         )
         mock_chain.__iter__.side_effect = Exception("Unexpected error")
 
@@ -721,9 +700,7 @@ class PostsListViewTests(TestCase):
 
 class PostsCreateViewTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(
-            username="testuser", password="testpassword"
-        )
+        self.user = User.objects.create_user(username="testuser", password="testpassword")
         self.client = Client()
 
     def test_create_post_authenticated(self):
@@ -790,9 +767,7 @@ class PostsCreateViewTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         data = json.loads(response.content)
-        self.assertEqual(
-            data["error"], "Data integrity error, please check your input."
-        )
+        self.assertEqual(data["error"], "Data integrity error, please check your input.")
 
     @patch("network.models.Post.objects.create")
     def test_create_post_validation_error(self, mock_create):
@@ -824,9 +799,7 @@ class PostsCreateViewTests(TestCase):
 
         self.assertEqual(response.status_code, 500)
         data = json.loads(response.content)
-        self.assertEqual(
-            data["error"], "Database operation error, please try again later."
-        )
+        self.assertEqual(data["error"], "Database operation error, please try again later.")
 
     @patch("network.models.Post.objects.create")
     def test_create_post_general_exception(self, mock_create):
@@ -856,13 +829,9 @@ class PostsCreateViewTests(TestCase):
 class PostDetailViewTests(TestCase):
     def setUp(self):
         # Create test user
-        self.user = User.objects.create_user(
-            username="testuser", password="testpass123"
-        )
+        self.user = User.objects.create_user(username="testuser", password="testpass123")
         # Create test post
-        self.post = Post.objects.create(
-            content="Test post content", created_by=self.user
-        )
+        self.post = Post.objects.create(content="Test post content", created_by=self.user)
         self.client = Client()
 
     def test_get_post_detail_success(self):
@@ -902,27 +871,19 @@ class PostDetailViewTests(TestCase):
             # Simulate database error
             mock_select_related.return_value.get.side_effect = DatabaseError()
 
-            response = self.client.get(
-                reverse("post", kwargs={"post_id": self.post.id})
-            )
+            response = self.client.get(reverse("post", kwargs={"post_id": self.post.id}))
 
             self.assertEqual(response.status_code, 500)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Database operation error, please try again later."
-            )
+            self.assertEqual(data["error"], "Database operation error, please try again later.")
 
     def test_general_exception_handling(self):
         """Test handling of general exceptions"""
         with patch("network.models.Post.objects.select_related") as mock_select_related:
             # Simulate general exception
-            mock_select_related.return_value.get.side_effect = Exception(
-                "Unexpected error"
-            )
+            mock_select_related.return_value.get.side_effect = Exception("Unexpected error")
 
-            response = self.client.get(
-                reverse("post", kwargs={"post_id": self.post.id})
-            )
+            response = self.client.get(reverse("post", kwargs={"post_id": self.post.id}))
 
             self.assertEqual(response.status_code, 500)
             data = json.loads(response.content)
@@ -932,17 +893,11 @@ class PostDetailViewTests(TestCase):
 class PostEditViewTests(TestCase):
     def setUp(self):
         # Create test users
-        self.user1 = User.objects.create_user(
-            username="testuser1", password="testpass123"
-        )
-        self.user2 = User.objects.create_user(
-            username="testuser2", password="testpass123"
-        )
+        self.user1 = User.objects.create_user(username="testuser1", password="testpass123")
+        self.user2 = User.objects.create_user(username="testuser2", password="testpass123")
 
         # Create test post
-        self.post = Post.objects.create(
-            content="Original content", created_by=self.user1
-        )
+        self.post = Post.objects.create(content="Original content", created_by=self.user1)
 
         self.client = Client()
 
@@ -1056,9 +1011,7 @@ class PostEditViewTests(TestCase):
 
             self.assertEqual(response.status_code, 400)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Data integrity error, please check your input."
-            )
+            self.assertEqual(data["error"], "Data integrity error, please check your input.")
 
     def test_edit_post_validation_error(self):
         """Test handling of ValidationError during post edit"""
@@ -1092,9 +1045,7 @@ class PostEditViewTests(TestCase):
 
             self.assertEqual(response.status_code, 500)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Database operation error, please try again later."
-            )
+            self.assertEqual(data["error"], "Database operation error, please try again later.")
 
     def test_edit_post_general_exception(self):
         """Test handling of general Exception during post edit"""
@@ -1117,17 +1068,11 @@ class PostEditViewTests(TestCase):
 class PostSoftDeleteViewTests(TestCase):
     def setUp(self):
         # Create test users
-        self.user1 = User.objects.create_user(
-            username="testuser1", password="testpass123"
-        )
-        self.user2 = User.objects.create_user(
-            username="testuser2", password="testpass123"
-        )
+        self.user1 = User.objects.create_user(username="testuser1", password="testpass123")
+        self.user2 = User.objects.create_user(username="testuser2", password="testpass123")
 
         # Create test post
-        self.post = Post.objects.create(
-            content="Original content", created_by=self.user1
-        )
+        self.post = Post.objects.create(content="Original content", created_by=self.user1)
 
         self.client = Client()
 
@@ -1205,9 +1150,7 @@ class PostSoftDeleteViewTests(TestCase):
 
             self.assertEqual(response.status_code, 500)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Database operation error, please try again later."
-            )
+            self.assertEqual(data["error"], "Database operation error, please try again later.")
 
             # Verify post is not deleted
             self.assertFalse(Post.objects.get(id=self.post.id).is_deleted)
@@ -1236,9 +1179,7 @@ class PostMethodTests(TestCase):
     """Test case for handling HTTP methods in post-related views"""
 
     def setUp(self):
-        self.user = User.objects.create_user(
-            username="testuser1", password="testpass123"
-        )
+        self.user = User.objects.create_user(username="testuser1", password="testpass123")
         self.post = Post.objects.create(content="Test content", created_by=self.user)
         self.client = Client()
         self.client.login(username="testuser1", password="testpass123")
@@ -1250,9 +1191,7 @@ class PostMethodTests(TestCase):
         # Test all invalid methods
         invalid_methods = ["PUT", "PATCH", "DELETE"]
         for method in invalid_methods:
-            response = getattr(self.client, method.lower())(
-                url, content_type="application/json"
-            )
+            response = getattr(self.client, method.lower())(url, content_type="application/json")
 
             self.assertEqual(response.status_code, 400)
             data = json.loads(response.content)
@@ -1265,15 +1204,11 @@ class PostMethodTests(TestCase):
         # Test all invalid methods
         invalid_methods = ["POST", "PUT"]
         for method in invalid_methods:
-            response = getattr(self.client, method.lower())(
-                url, content_type="application/json"
-            )
+            response = getattr(self.client, method.lower())(url, content_type="application/json")
 
             self.assertEqual(response.status_code, 400)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Only accept GET, PATCH and DELETE methods."
-            )
+            self.assertEqual(data["error"], "Only accept GET, PATCH and DELETE methods.")
 
 
 class UserDetailViewTests(TestCase):
@@ -1284,18 +1219,14 @@ class UserDetailViewTests(TestCase):
         )
 
         # Create test posts
-        self.active_post = Post.objects.create(
-            content="Active post", created_by=self.user
-        )
+        self.active_post = Post.objects.create(content="Active post", created_by=self.user)
 
         self.deleted_post = Post.objects.create(
             content="Deleted post", created_by=self.user, is_deleted=True
         )
 
         # Create another user for testing follow functionality
-        self.other_user = User.objects.create_user(
-            username="otheruser", password="testpass123"
-        )
+        self.other_user = User.objects.create_user(username="otheruser", password="testpass123")
 
         # Create follow relationship (other_user follows self.user)
         Following.objects.create(follower=self.other_user, following=self.user)
@@ -1307,9 +1238,7 @@ class UserDetailViewTests(TestCase):
         # Note: Following relationship is already created in setUp()
         # No need to create another one
 
-        response = self.client.get(
-            reverse("user_detail", kwargs={"username": self.user.username})
-        )
+        response = self.client.get(reverse("user_detail", kwargs={"username": self.user.username}))
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -1324,9 +1253,7 @@ class UserDetailViewTests(TestCase):
         self.assertEqual(user_data["username"], self.user.username)
         self.assertEqual(user_data["email"], self.user.email)
         self.assertEqual(user_data["following_count"], 0)  # user has 0 followings
-        self.assertEqual(
-            user_data["follower_count"], 1
-        )  # user has 1 follower (other_user)
+        self.assertEqual(user_data["follower_count"], 1)  # user has 1 follower (other_user)
 
         # Verify posts data
         posts = data["posts"]
@@ -1340,9 +1267,7 @@ class UserDetailViewTests(TestCase):
             username="newuser", password="testpass123", email="new@example.com"
         )
 
-        response = self.client.get(
-            reverse("user_detail", kwargs={"username": new_user.username})
-        )
+        response = self.client.get(reverse("user_detail", kwargs={"username": new_user.username}))
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -1350,9 +1275,7 @@ class UserDetailViewTests(TestCase):
 
     def test_get_nonexistent_user(self):
         """Test retrieving non-existent user"""
-        response = self.client.get(
-            reverse("user_detail", kwargs={"username": "nonexistent"})
-        )
+        response = self.client.get(reverse("user_detail", kwargs={"username": "nonexistent"}))
 
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
@@ -1400,15 +1323,13 @@ class UserDetailViewTests(TestCase):
     def test_post_ordering(self):
         """Test posts are ordered by creation time descending"""
         # Create posts with different timestamps
-        newer_post = Post.objects.create(
+        Post.objects.create(
             content="Newer post",
             created_by=self.user,
             created_at=timezone.now() + timedelta(hours=1),
         )
 
-        response = self.client.get(
-            reverse("user_detail", kwargs={"username": self.user.username})
-        )
+        response = self.client.get(reverse("user_detail", kwargs={"username": self.user.username}))
 
         data = json.loads(response.content)
         posts = data["posts"]
@@ -1421,17 +1342,11 @@ class UserDetailViewTests(TestCase):
 class PostLikeViewTests(TestCase):
     def setUp(self):
         # Create test users
-        self.user1 = User.objects.create_user(
-            username="testuser1", password="testpass123"
-        )
-        self.user2 = User.objects.create_user(
-            username="testuser2", password="testpass123"
-        )
+        self.user1 = User.objects.create_user(username="testuser1", password="testpass123")
+        self.user2 = User.objects.create_user(username="testuser2", password="testpass123")
 
         # Create test post
-        self.post = Post.objects.create(
-            content="Test post content", created_by=self.user1
-        )
+        self.post = Post.objects.create(content="Test post content", created_by=self.user1)
 
         self.client = Client()
 
@@ -1502,9 +1417,7 @@ class PostLikeViewTests(TestCase):
 
             self.assertEqual(response.status_code, 400)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Data integrity error, please check your input."
-            )
+            self.assertEqual(data["error"], "Data integrity error, please check your input.")
 
     def test_like_post_validation_error(self):
         """Test validation error when liking post"""
@@ -1536,9 +1449,7 @@ class PostLikeViewTests(TestCase):
 
             self.assertEqual(response.status_code, 500)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Database operation error, please try again later."
-            )
+            self.assertEqual(data["error"], "Database operation error, please try again later.")
 
     def test_like_post_general_error(self):
         """Test general error when liking post"""
@@ -1646,12 +1557,8 @@ class PostLikeViewTests(TestCase):
 class FollowViewTests(TestCase):
     def setUp(self):
         # Create test users
-        self.user1 = User.objects.create_user(
-            username="testuser1", password="testpass123"
-        )
-        self.user2 = User.objects.create_user(
-            username="testuser2", password="testpass123"
-        )
+        self.user1 = User.objects.create_user(username="testuser1", password="testpass123")
+        self.user2 = User.objects.create_user(username="testuser2", password="testpass123")
         self.client = Client()
 
     def test_follow_success(self):
@@ -1746,9 +1653,7 @@ class FollowViewTests(TestCase):
 
             self.assertEqual(response.status_code, 400)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Data integrity error, please check your input."
-            )
+            self.assertEqual(data["error"], "Data integrity error, please check your input.")
 
     def test_follow_validation_error(self):
         """Test validation error when following user"""
@@ -1780,9 +1685,7 @@ class FollowViewTests(TestCase):
 
             self.assertEqual(response.status_code, 500)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Database operation error, please try again later."
-            )
+            self.assertEqual(data["error"], "Database operation error, please try again later.")
 
     def test_follow_unexpected_error(self):
         """Test unexpected error when following user"""
@@ -1858,15 +1761,11 @@ class FollowViewTests(TestCase):
 
             self.assertEqual(response.status_code, 500)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Database operation error, please try again later."
-            )
+            self.assertEqual(data["error"], "Database operation error, please try again later.")
 
             # Verify following relationship still exists
             self.assertTrue(
-                Following.objects.filter(
-                    follower=self.user1, following=self.user2
-                ).exists()
+                Following.objects.filter(follower=self.user1, following=self.user2).exists()
             )
 
     def test_unfollow_unexpected_error(self):
@@ -1911,28 +1810,18 @@ class FollowViewTests(TestCase):
 class PostsFollowingViewTests(TestCase):
     def setUp(self):
         # Create test users
-        self.user1 = User.objects.create_user(
-            username="testuser1", password="testpass123"
-        )
-        self.user2 = User.objects.create_user(
-            username="testuser2", password="testpass123"
-        )
-        self.user3 = User.objects.create_user(
-            username="testuser3", password="testpass123"
-        )
+        self.user1 = User.objects.create_user(username="testuser1", password="testpass123")
+        self.user2 = User.objects.create_user(username="testuser2", password="testpass123")
+        self.user3 = User.objects.create_user(username="testuser3", password="testpass123")
 
         # Create test posts
-        self.post1 = Post.objects.create(
-            content="Test post 1 by user2", created_by=self.user2
-        )
+        self.post1 = Post.objects.create(content="Test post 1 by user2", created_by=self.user2)
         self.post2 = Post.objects.create(
             content="Test post 2 by user2",
             created_by=self.user2,
             is_deleted=True,  # Deleted post
         )
-        self.post3 = Post.objects.create(
-            content="Test post by user3", created_by=self.user3
-        )
+        self.post3 = Post.objects.create(content="Test post by user3", created_by=self.user3)
 
         # Create following relationships
         Following.objects.create(follower=self.user1, following=self.user2)
@@ -1971,7 +1860,7 @@ class PostsFollowingViewTests(TestCase):
     def test_get_following_posts_no_following(self):
         """Test getting following posts when user follows no one"""
         # Create new user with no followings
-        user4 = User.objects.create_user(username="testuser4", password="testpass123")
+        User.objects.create_user(username="testuser4", password="testpass123")
         self.client.login(username="testuser4", password="testpass123")
 
         response = self.client.get(reverse("posts_following"))
@@ -1985,7 +1874,7 @@ class PostsFollowingViewTests(TestCase):
         self.client.login(username="testuser1", password="testpass123")
 
         # Create newer post by followed user
-        newer_post = Post.objects.create(
+        Post.objects.create(
             content="Newer post by user2",
             created_by=self.user2,
             created_at=timezone.now() + timedelta(hours=1),
@@ -2032,7 +1921,8 @@ class PostsFollowingViewTests(TestCase):
         """Test handling of Post.DoesNotExist"""
         self.client.login(username="testuser1", password="testpass123")
         mock_chain = (
-            mock_select_related.return_value.prefetch_related.return_value.filter.return_value.order_by.return_value
+            mock_select_related.return_value.prefetch_related.return_value.filter.return_value
+            .order_by.return_value
         )
         mock_chain.__iter__.side_effect = Post.DoesNotExist()
 
@@ -2052,9 +1942,7 @@ class PostsFollowingViewTests(TestCase):
 
         self.assertEqual(response.status_code, 500)
         data = json.loads(response.content)
-        self.assertEqual(
-            data["error"], "Database operation error, please try again later."
-        )
+        self.assertEqual(data["error"], "Database operation error, please try again later.")
 
     @patch("network.models.Following.objects.filter")
     def test_general_exception_handling(self, mock_filter):
@@ -2072,14 +1960,10 @@ class PostsFollowingViewTests(TestCase):
 class CommentViewTests(TestCase):
     def setUp(self):
         # Create test users
-        self.user1 = User.objects.create_user(
-            username="testuser1", password="testpass123"
-        )
+        self.user1 = User.objects.create_user(username="testuser1", password="testpass123")
 
         # Create test post
-        self.post = Post.objects.create(
-            content="Test post content", created_by=self.user1
-        )
+        self.post = Post.objects.create(content="Test post content", created_by=self.user1)
 
         # Initialize test client
         self.client = Client()
@@ -2176,9 +2060,7 @@ class CommentViewTests(TestCase):
 
             self.assertEqual(response.status_code, 400)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Data integrity error, please check your input."
-            )
+            self.assertEqual(data["error"], "Data integrity error, please check your input.")
 
     def test_comment_validation_error(self):
         """Test handling of ValidationError during comment creation"""
@@ -2212,9 +2094,7 @@ class CommentViewTests(TestCase):
 
             self.assertEqual(response.status_code, 500)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Database operation error, please try again later."
-            )
+            self.assertEqual(data["error"], "Database operation error, please try again later.")
 
     def test_comment_general_exception(self):
         """Test handling of general Exception during comment creation"""
@@ -2237,9 +2117,7 @@ class CommentViewTests(TestCase):
         """Test handling of invalid HTTP methods"""
         self.client.login(username="testuser1", password="testpass123")
 
-        response = self.client.get(
-            reverse("comments", kwargs={"post_id": self.post.id})
-        )
+        response = self.client.get(reverse("comments", kwargs={"post_id": self.post.id}))
 
         self.assertEqual(response.status_code, 400)
         data = json.loads(response.content)
@@ -2250,17 +2128,11 @@ class CommentDetailViewTests(TestCase):
     def setUp(self):
         """Set up test data"""
         # Create test users
-        self.user1 = User.objects.create_user(
-            username="testuser1", password="testpass123"
-        )
-        self.user2 = User.objects.create_user(
-            username="testuser2", password="testpass123"
-        )
+        self.user1 = User.objects.create_user(username="testuser1", password="testpass123")
+        self.user2 = User.objects.create_user(username="testuser2", password="testpass123")
 
         # Create test post
-        self.post = Post.objects.create(
-            created_by=self.user1, content="Test post content"
-        )
+        self.post = Post.objects.create(created_by=self.user1, content="Test post content")
 
     def test_edit_comment_success(self):
         """Test successful comment edit"""
@@ -2363,9 +2235,7 @@ class CommentDetailViewTests(TestCase):
 
             self.assertEqual(response.status_code, 500)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Database operation error, please try again later."
-            )
+            self.assertEqual(data["error"], "Database operation error, please try again later.")
 
     def test_edit_comment_validation_error(self):
         """Test handling ValidationError during comment edit"""
@@ -2405,9 +2275,7 @@ class CommentDetailViewTests(TestCase):
 
             self.assertEqual(response.status_code, 400)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Data integrity error, please check your input."
-            )
+            self.assertEqual(data["error"], "Data integrity error, please check your input.")
 
     def test_edit_comment_general_exception(self):
         """Test handling general Exception during comment edit"""
@@ -2453,9 +2321,7 @@ class CommentDetailViewTests(TestCase):
             created_by=self.user1, post=self.post, content="Test comment"
         )
 
-        response = self.client.delete(
-            reverse("comment_detail", kwargs={"comment_id": comment.id})
-        )
+        response = self.client.delete(reverse("comment_detail", kwargs={"comment_id": comment.id}))
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
@@ -2472,9 +2338,7 @@ class CommentDetailViewTests(TestCase):
             created_by=self.user1, post=self.post, content="Test comment"
         )
 
-        response = self.client.delete(
-            reverse("comment_detail", kwargs={"comment_id": comment.id})
-        )
+        response = self.client.delete(reverse("comment_detail", kwargs={"comment_id": comment.id}))
 
         self.assertEqual(response.status_code, 403)
         data = json.loads(response.content)
@@ -2484,9 +2348,7 @@ class CommentDetailViewTests(TestCase):
         """Test deleting non-existent comment"""
         self.client.login(username="testuser1", password="testpass123")
 
-        response = self.client.delete(
-            reverse("comment_detail", kwargs={"comment_id": 99999})
-        )
+        response = self.client.delete(reverse("comment_detail", kwargs={"comment_id": 99999}))
 
         self.assertEqual(response.status_code, 404)
         data = json.loads(response.content)
@@ -2508,9 +2370,7 @@ class CommentDetailViewTests(TestCase):
 
             self.assertEqual(response.status_code, 500)
             data = json.loads(response.content)
-            self.assertEqual(
-                data["error"], "Database operation error, please try again later."
-            )
+            self.assertEqual(data["error"], "Database operation error, please try again later.")
 
     def test_delete_comment_general_exception(self):
         """Test handling general Exception during comment deletion"""

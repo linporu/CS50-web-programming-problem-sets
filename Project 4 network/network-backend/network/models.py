@@ -1,7 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
-from datetime import timedelta
 
 
 class User(AbstractUser):
@@ -60,11 +59,7 @@ class Post(models.Model):
         :param force_refresh: Whether to force refresh the cache
         """
         # If force refresh or cache doesn't exist or cache expired
-        if (
-            force_refresh
-            or self._cached_serialized_data is None
-            or not self.is_cache_valid()
-        ):
+        if force_refresh or self._cached_serialized_data is None or not self.is_cache_valid():
 
             self._cached_serialized_data = {
                 "id": self.id,
@@ -91,12 +86,8 @@ class Post(models.Model):
 
 
 class Following(models.Model):
-    follower = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="following"
-    )
-    following = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="followers"
-    )
+    follower = models.ForeignKey(User, on_delete=models.CASCADE, related_name="following")
+    following = models.ForeignKey(User, on_delete=models.CASCADE, related_name="followers")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -119,9 +110,7 @@ class Comment(models.Model):
         related_name="comments",
     )
     content = models.TextField()
-    created_by = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="comments"
-    )
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name="comments")
     created_at = models.DateTimeField(auto_now_add=True)
     is_deleted = models.BooleanField(default=False)
 
