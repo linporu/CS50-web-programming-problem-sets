@@ -5,10 +5,14 @@ import MainLayout from "../src/layouts/MainLayout";
 import { AuthProvider } from "../src/contexts/AuthContext";
 import * as authService from "../src/services/authService";
 import React from "react";
+import { logoutUser } from "../src/services/authService";
+import userEvent from "@testing-library/user-event";
+import "@testing-library/jest-dom";
 
 // Mock the authService
 vi.mock("../src/services/authService", () => ({
   checkAuthStatus: vi.fn(),
+  logoutUser: vi.fn(),
 }));
 
 const renderMainLayout = () => {
@@ -69,6 +73,113 @@ describe("MainLayout", () => {
     await waitFor(() => {
       expect(screen.getByText(/Welcome, testuser!/)).toBeDefined();
       expect(screen.getByText("Home")).toBeDefined();
+    });
+  });
+
+  describe("logout functionality", () => {
+    beforeEach(() => {
+      // Mock successful authentication for all logout tests
+      vi.mocked(authService.checkAuthStatus).mockResolvedValue({
+        message: "Authenticated",
+        user: {
+          id: 1,
+          username: "testuser",
+          email: "test@example.com",
+          following_count: 0,
+          follower_count: 0,
+        },
+      });
+    });
+
+    it("handles successful logout", async () => {
+      const user = userEvent.setup();
+
+      // Create a controlled Promise for logout
+      let resolveLogout: (value: unknown) => void;
+      const logoutPromise = new Promise((resolve) => {
+        resolveLogout = resolve;
+      });
+      vi.mocked(logoutUser).mockImplementation(() => logoutPromise);
+
+      renderMainLayout();
+
+      // Wait for the authenticated state
+      await waitFor(() => {
+        expect(screen.getByText(/Welcome, testuser!/)).toBeDefined();
+      });
+
+      // Click logout button
+      const logoutButton = screen.getByRole("button", { name: /logout/i });
+      await user.click(logoutButton);
+
+      // Now we should see the loading state
+      expect(screen.getByText("Logging out...")).toBeDefined();
+      expect(logoutButton).toHaveProperty("disabled", true);
+
+      // Resolve the logout promise
+      resolveLogout!(undefined);
+
+      // Verify final state
+      await waitFor(() => {
+        expect(screen.getByText("Login")).toBeDefined();
+        expect(screen.getByText("Register")).toBeDefined();
+      });
+    });
+
+    it("displays error message on logout failure", async () => {
+      const user = userEvent.setup();
+      vi.mocked(logoutUser).mockRejectedValue(new Error("Network error"));
+
+      renderMainLayout();
+
+      // Wait for the authenticated state
+      await waitFor(() => {
+        expect(screen.getByText(/Welcome, testuser!/)).toBeDefined();
+      });
+
+      // Click logout button
+      const logoutButton = screen.getByRole("button", { name: /logout/i });
+      await user.click(logoutButton);
+
+      // Verify error message
+      await waitFor(() => {
+        expect(screen.getByText("Network error")).toBeDefined();
+      });
+
+      // Verify user is still logged in
+      expect(screen.getByText(/Welcome, testuser!/)).toBeDefined();
+    });
+
+    it("disables logout button while processing", async () => {
+      const user = userEvent.setup();
+      // Create a promise that we can resolve manually
+      let resolveLogout: (value: unknown) => void;
+      const logoutPromise = new Promise((resolve) => {
+        resolveLogout = resolve;
+      });
+      vi.mocked(logoutUser).mockImplementation(() => logoutPromise);
+
+      renderMainLayout();
+
+      // Wait for the authenticated state
+      await waitFor(() => {
+        expect(screen.getByText(/Welcome, testuser!/)).toBeDefined();
+      });
+
+      // Click logout button
+      const logoutButton = screen.getByRole("button", { name: /logout/i });
+      await user.click(logoutButton);
+      // Verify button is disabled during loading
+      expect(logoutButton).toBeDisabled();
+      expect(screen.getByText("Logging out...")).toBeDefined();
+
+      // Resolve the logout promise
+      resolveLogout!(undefined);
+
+      // Verify final state
+      await waitFor(() => {
+        expect(screen.getByText("Login")).toBeDefined();
+      });
     });
   });
 });
