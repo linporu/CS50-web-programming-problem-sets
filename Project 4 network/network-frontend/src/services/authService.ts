@@ -19,7 +19,7 @@ export const loginUser = async (username: string, password: string) => {
   return data as LoginResponse;
 };
 
-export const logoutUser = async () => {
+export const logoutApi = async () => {
   return fetchWithConfig("/logout", {
     method: "POST",
   });

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { logoutUser } from "../services/authService";
+import { logoutApi } from "../services/authService";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function MainLayout({
@@ -9,7 +9,7 @@ export default function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, logout } = useAuth();
+  const { user, clearAuth } = useAuth();
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
@@ -20,8 +20,8 @@ export default function MainLayout({
     setIsLoading(true);
 
     try {
-      await logoutUser(); // Backend logout API
-      logout(); // Frontend logout
+      await logoutApi(); // Backend logout API
+      clearAuth(); // Frontend logout
       navigate("/login");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Logout failed");
