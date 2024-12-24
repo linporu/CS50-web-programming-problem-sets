@@ -5,14 +5,14 @@ import MainLayout from "../src/layouts/MainLayout";
 import { AuthProvider } from "../src/contexts/AuthContext";
 import * as authService from "../src/services/authService";
 import React from "react";
-import { logoutUser } from "../src/services/authService";
+import { logoutApi } from "../src/services/authService";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 
 // Mock the authService
 vi.mock("../src/services/authService", () => ({
   checkAuthStatus: vi.fn(),
-  logoutUser: vi.fn(),
+  logoutApi: vi.fn(),
 }));
 
 const renderMainLayout = () => {
@@ -99,7 +99,7 @@ describe("MainLayout", () => {
       const logoutPromise = new Promise((resolve) => {
         resolveLogout = resolve;
       });
-      vi.mocked(logoutUser).mockImplementation(() => logoutPromise);
+      vi.mocked(logoutApi).mockImplementation(() => logoutPromise);
 
       renderMainLayout();
 
@@ -128,7 +128,7 @@ describe("MainLayout", () => {
 
     it("displays error message on logout failure", async () => {
       const user = userEvent.setup();
-      vi.mocked(logoutUser).mockRejectedValue(new Error("Network error"));
+      vi.mocked(logoutApi).mockRejectedValue(new Error("Network error"));
 
       renderMainLayout();
 
@@ -157,7 +157,7 @@ describe("MainLayout", () => {
       const logoutPromise = new Promise((resolve) => {
         resolveLogout = resolve;
       });
-      vi.mocked(logoutUser).mockImplementation(() => logoutPromise);
+      vi.mocked(logoutApi).mockImplementation(() => logoutPromise);
 
       renderMainLayout();
 

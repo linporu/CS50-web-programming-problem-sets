@@ -21,7 +21,7 @@ interface AuthContextType {
   user: User | null;
   setUser: (user: User | null) => void;
   isAuthenticated: boolean;
-  logout: () => void;
+  clearAuth: () => void;
   loading?: boolean;
   _isDefault?: boolean;
 }
@@ -31,7 +31,7 @@ const defaultContextValue: AuthContextType = {
   user: null,
   setUser: () => {},
   isAuthenticated: false,
-  logout: () => {},
+  clearAuth: () => {},
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const isAuthenticated = user !== null;
-  const logout = () => {
+  const clearAuth = () => {
     setUser(null);
     localStorage.removeItem("user");
   };
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         setUser,
         isAuthenticated,
-        logout,
+        clearAuth,
         _isDefault: false, // Value provided by Provider is not default
       }}
     >
