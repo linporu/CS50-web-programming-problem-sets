@@ -17,7 +17,7 @@ export default function RegisterPage() {
     if (!username || !email || !password || !confirmation) {
       setError("Please fill in all fields");
       return;
-    };
+    }
 
     // Basic email validation using regex
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -28,15 +28,21 @@ export default function RegisterPage() {
 
     if (password !== confirmation) {
       setError("Passwords must match");
+      return;
     }
 
     try {
       await registerApi(username, email, password, confirmation);
-      navigate("/login");
+      navigate("/login", {
+        state: {
+          message:
+            "Registration successful! Please login with your credentials.",
+        },
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Register failed");
     }
-  }  
+  };
 
   return (
     <div className="max-w-md mx-auto mt-10">
@@ -46,7 +52,7 @@ export default function RegisterPage() {
           {error}
         </div>
       )}
-      <form onSubmit={handleRegister}>
+      <form onSubmit={handleRegister} aria-label="register-form">
         <div className="mb-4">
           <label htmlFor="username" className="block mb-2">
             Username

@@ -1,5 +1,5 @@
 import { useState, FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { loginUser } from "../services/authService";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -9,6 +9,8 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { setUser } = useAuth();
+  const location = useLocation();
+  const message = location.state?.message;
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -27,11 +29,16 @@ export default function LoginPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     }
-  }
+  };
 
   return (
     <div className="max-w-md mx-auto mt-10">
       <h2 className="text-2xl font-bold mb-4">Login</h2>
+      {message && (
+        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+          {message}
+        </div>
+      )}
       {error && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
           {error}
