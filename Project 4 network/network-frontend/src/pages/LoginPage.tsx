@@ -27,7 +27,7 @@ export default function LoginPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     }
-  };
+  }
 
   return (
     <div className="max-w-md mx-auto mt-10">
