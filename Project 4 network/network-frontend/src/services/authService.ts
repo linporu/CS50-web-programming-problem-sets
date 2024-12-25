@@ -11,6 +11,17 @@ export interface LoginResponse {
   };
 }
 
+export interface RegisterResponse {
+  message: string;
+  user: {
+    id: number;
+    username: string;
+    email: string;
+    following_count: number;
+    follower_count: number;
+  };
+}
+
 export const loginUser = async (username: string, password: string) => {
   const data = await fetchWithConfig("login", {
     method: "POST",
@@ -23,6 +34,19 @@ export const logoutApi = async () => {
   return fetchWithConfig("/logout", {
     method: "POST",
   });
+};
+
+export const registerApi = async (
+  username: string,
+  email: string,
+  password: string,
+  confirmation: string
+) => {
+  const data = await fetchWithConfig("register", {
+    method: "POST",
+    body: JSON.stringify({ username, email, password, confirmation }),
+  });
+  return data as RegisterResponse;
 };
 
 export const checkAuthStatus = async () => {
