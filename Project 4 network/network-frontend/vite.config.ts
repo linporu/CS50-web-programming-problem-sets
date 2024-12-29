@@ -1,6 +1,6 @@
 /// <reference types="vitest" />
 /// <reference types="vite/client" />
-import { defineConfig } from "vite";
+import { defineConfig, UserConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 // https://vite.dev/config/
@@ -17,4 +17,4 @@ export default defineConfig({
       exclude: ["node_modules/", "src/tests/**"],
     },
   },
-});
+} as UserConfig);
