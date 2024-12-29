@@ -248,4 +248,54 @@ describe("API Service", () => {
     const result = await fetchWithConfig("/test");
     expect(result).toBeNull();
   });
+
+  it("successfully fetches and returns posts data", async () => {
+    // Mock response data
+    const mockPostsResponse = {
+      message: "Get posts successfully.",
+      posts: [
+        {
+          id: 1,
+          content: "test",
+          created_by: "test",
+          created_at: "2024-12-29 14:48:11",
+          updated_at: "2024-12-29 14:48:11",
+          is_deleted: false,
+          likes_count: 0,
+          comments: [],
+          comments_count: 0,
+        },
+      ],
+    };
+
+    // Create mock fetch function
+    const mockFetch = vi.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(mockPostsResponse), {
+          status: 200,
+          headers: new Headers({
+            "content-type": "application/json",
+          }),
+        })
+      )
+    );
+
+    // Replace global fetch with mock
+    vi.stubGlobal("fetch", mockFetch);
+
+    // Call the API
+    const result = await fetchWithConfig("/posts");
+
+    // Verify the response
+    expect(result).toEqual(mockPostsResponse);
+    expect(mockFetch).toHaveBeenCalledWith(
+      `${API_BASE_URL}/posts`,
+      expect.objectContaining({
+        credentials: "include",
+        headers: expect.objectContaining({
+          "Content-Type": "application/json",
+        }),
+      })
+    );
+  });
 });
