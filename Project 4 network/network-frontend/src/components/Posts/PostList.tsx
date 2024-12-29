@@ -27,14 +27,16 @@ export default function PostList() {
 
   useEffect(() => {
     const fetchPosts = async () => {
+      console.log("Starting to fetch posts...");
       try {
-        const response = await getPostApi();
-        if (!response.ok) {
-          throw new Error("Failed to fetch posts");
-        }
-        const data = await response.json();
+        const data = await getPostApi();
+        console.log("Received data:", data);
         setPosts(data);
       } catch (err) {
+        console.error("Fetch error details:", {
+          message: err instanceof Error ? err.message : "Unknown error",
+          error: err,
+        });
         setError(err instanceof Error ? err.message : "An error occurred");
       } finally {
         setIsLoading(false);
