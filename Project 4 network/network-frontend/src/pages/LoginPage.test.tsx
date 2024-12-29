@@ -1,13 +1,16 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BrowserRouter } from "react-router-dom";
-import LoginPage from "../src/pages/LoginPage";
-import * as authService from "../src/services/authService";
+import LoginPage from "./LoginPage";
+import * as authService from "../services/authService";
 import { describe, expect, beforeEach, vi, test } from "vitest";
-import React from "react";
+import { AuthProvider } from "../contexts/AuthContext";
 
 // Mock the authService
-vi.mock("../src/services/authService");
+vi.mock("../services/authService", () => ({
+  loginUser: vi.fn(),
+  checkAuthStatus: vi.fn().mockResolvedValue({ user: null }),
+}));
 
 // Mock useNavigate
 const mockNavigate = vi.fn();
@@ -19,23 +22,18 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
-// Mock AuthContext
-const mockSetUser = vi.fn();
-vi.mock("../src/contexts/AuthContext", () => ({
-  useAuth: () => ({
-    setUser: mockSetUser,
-    user: null,
-    loading: false,
-  }),
-  AuthProvider: ({ children }: { children: React.ReactNode }) => children,
-}));
-
-const renderLoginPage = () => {
-  return render(
-    <BrowserRouter>
-      <LoginPage />
-    </BrowserRouter>
+const renderLoginPage = async () => {
+  render(
+    <AuthProvider>
+      <BrowserRouter>
+        <LoginPage />
+      </BrowserRouter>
+    </AuthProvider>
   );
+  // Wait for the loading state to finish
+  await waitFor(() => {
+    expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
+  });
 };
 
 describe("LoginPage", () => {
@@ -44,8 +42,8 @@ describe("LoginPage", () => {
   });
 
   // Test component rendering
-  test("renders login form with all necessary elements", () => {
-    renderLoginPage();
+  test("renders login form with all necessary elements", async () => {
+    await renderLoginPage();
 
     expect(screen.getByRole("heading", { name: /login/i })).toBeDefined();
     expect(screen.getByLabelText(/username/i)).toBeDefined();
@@ -55,7 +53,7 @@ describe("LoginPage", () => {
 
   // Test form validation - empty fields
   test("shows error message when submitting empty form", async () => {
-    renderLoginPage();
+    await renderLoginPage();
 
     const submitButton = screen.getByRole("button", { name: /login/i });
     await userEvent.click(submitButton);
@@ -65,7 +63,7 @@ describe("LoginPage", () => {
 
   // Test form validation - empty username
   test("shows error message when submitting form with empty username", async () => {
-    renderLoginPage();
+    await renderLoginPage();
 
     const passwordInput = screen.getByLabelText(/password/i);
     await userEvent.type(passwordInput, "password123");
@@ -78,7 +76,7 @@ describe("LoginPage", () => {
 
   // Test form validation - empty password
   test("shows error message when submitting form with empty password", async () => {
-    renderLoginPage();
+    await renderLoginPage();
 
     const usernameInput = screen.getByLabelText(/username/i);
     await userEvent.type(usernameInput, "testuser");
@@ -103,7 +101,7 @@ describe("LoginPage", () => {
       message: "",
     });
 
-    renderLoginPage();
+    await renderLoginPage();
 
     const usernameInput = screen.getByLabelText(/username/i);
     const passwordInput = screen.getByLabelText(/password/i);
@@ -129,7 +127,7 @@ describe("LoginPage", () => {
       new Error("Invalid credentials")
     );
 
-    renderLoginPage();
+    await renderLoginPage();
 
     const usernameInput = screen.getByLabelText(/username/i);
     const passwordInput = screen.getByLabelText(/password/i);
@@ -151,7 +149,7 @@ describe("LoginPage", () => {
       new Error("Server error")
     );
 
-    renderLoginPage();
+    await renderLoginPage();
 
     const usernameInput = screen.getByLabelText(/username/i);
     const passwordInput = screen.getByLabelText(/password/i);
@@ -169,7 +167,7 @@ describe("LoginPage", () => {
 
   // Test input field updates
   test("updates input fields when typing", async () => {
-    renderLoginPage();
+    await renderLoginPage();
 
     const usernameInput = screen.getByLabelText(
       /username/i

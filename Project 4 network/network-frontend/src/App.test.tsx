@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import App from "../src/App";
-import React from "react";
 
 // Mock the authService
 vi.mock("../src/services/authService", () => ({

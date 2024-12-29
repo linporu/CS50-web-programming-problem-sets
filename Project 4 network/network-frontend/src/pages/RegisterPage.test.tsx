@@ -1,13 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
-import RegisterPage from "../src/pages/RegisterPage";
-import * as authService from "../src/services/authService";
+import RegisterPage from "./RegisterPage";
+import * as authService from "../services/authService";
 import userEvent from "@testing-library/user-event";
-import React from "react";
 
 // Mock the entire authService module
-vi.mock("../src/services/authService");
+vi.mock("../services/authService", () => ({
+  registerApi: vi.fn(),
+}));
+
 // Mock useNavigate
 const mockNavigate = vi.fn();
 vi.mock("react-router-dom", async () => {
@@ -94,21 +96,22 @@ describe("RegisterPage", () => {
   });
 
   it("navigates to login page on successful registration", async () => {
-    vi.mocked(authService.registerApi).mockResolvedValueOnce({
-        message: "Registration successful",
-        user: {
-            id: 0,
-            username: "",
-            email: "",
-            following_count: 0,
-            follower_count: 0
-        }
-    });
+    const mockResponse = {
+      message: "Registration successful",
+      user: {
+        id: 1,
+        username: "testuser",
+        email: "test@example.com",
+        following_count: 0,
+        follower_count: 0,
+      },
+    };
+
+    const registerApiMock = vi.fn().mockResolvedValue(mockResponse);
+    vi.mocked(authService.registerApi).mockImplementation(registerApiMock);
 
     renderRegisterPage();
-
     await fillForm();
-
     fireEvent.click(screen.getByRole("button", { name: /register/i }));
 
     await waitFor(() => {
@@ -123,14 +126,11 @@ describe("RegisterPage", () => {
 
   it("shows error message when registration fails", async () => {
     const errorMessage = "Registration failed";
-    vi.mocked(authService.registerApi).mockRejectedValueOnce(
-      new Error(errorMessage)
-    );
+    const registerApiMock = vi.fn().mockRejectedValue(new Error(errorMessage));
+    vi.mocked(authService.registerApi).mockImplementation(registerApiMock);
 
     renderRegisterPage();
-
     await fillForm();
-
     fireEvent.click(screen.getByRole("button", { name: /register/i }));
 
     expect(await screen.findByText(errorMessage)).toBeInTheDocument();

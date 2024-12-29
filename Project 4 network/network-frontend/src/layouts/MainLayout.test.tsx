@@ -1,16 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
-import MainLayout from "../src/layouts/MainLayout";
-import { AuthProvider } from "../src/contexts/AuthContext";
-import * as authService from "../src/services/authService";
-import React from "react";
-import { logoutApi } from "../src/services/authService";
+import MainLayout from "./MainLayout";
+import { AuthProvider } from "../contexts/AuthContext";
+import * as authService from "../services/authService";
+import { logoutApi } from "../services/authService";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom";
 
 // Mock the authService
-vi.mock("../src/services/authService", () => ({
+vi.mock("../services/authService", () => ({
   checkAuthStatus: vi.fn(),
   logoutApi: vi.fn(),
 }));
@@ -30,10 +29,11 @@ const renderMainLayout = () => {
 describe("MainLayout", () => {
   beforeEach(() => {
     // Reset all mocks before each test
-    vi.resetAllMocks();
+    vi.clearAllMocks();
     // Default mock implementation for unauthenticated state
-    const mockCheckAuthStatus = vi.mocked(authService.checkAuthStatus);
-    mockCheckAuthStatus.mockRejectedValue(new Error("Not authenticated"));
+    vi.mocked(authService.checkAuthStatus).mockRejectedValue(
+      new Error("Not authenticated")
+    );
   });
 
   it("renders navigation and content", async () => {

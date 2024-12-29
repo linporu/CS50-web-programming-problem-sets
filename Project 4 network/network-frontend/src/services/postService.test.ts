@@ -9,8 +9,8 @@ import {
 } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { getPostApi } from "../src/services/postService";
-import { API_BASE_URL } from "../src/services/api";
+import { getPostApi } from "./postService";
+import { API_BASE_URL } from "./api";
 
 // Declare fetch as a global type
 declare global {

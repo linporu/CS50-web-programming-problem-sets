@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { AuthProvider, useAuth } from "../src/contexts/AuthContext";
-import React from "react";
+import { AuthProvider, useAuth } from "./AuthContext";
 
 describe("AuthContext", () => {
   it("provides user state and setUser function", async () => {

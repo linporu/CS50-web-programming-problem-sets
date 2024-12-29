@@ -4,11 +4,11 @@ import {
   logoutApi,
   registerApi,
   checkAuthStatus,
-} from "../src/services/authService";
-import { fetchWithConfig } from "../src/services/api";
+} from "./authService";
+import { fetchWithConfig } from "./api";
 
 // Mock the fetchWithConfig function
-vi.mock("../src/services/api", () => ({
+vi.mock("./api", () => ({
   fetchWithConfig: vi.fn(),
 }));
 

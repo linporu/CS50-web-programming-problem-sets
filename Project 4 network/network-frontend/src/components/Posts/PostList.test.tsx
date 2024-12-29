@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
-import PostList from "../src/components/Posts/PostList";
+import PostList from "./PostList";
 
 // Mock data
 const mockPosts = [
