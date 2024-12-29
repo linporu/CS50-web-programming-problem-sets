@@ -1,5 +1,10 @@
 import { fetchWithConfig } from "./api";
 
+interface PostApiResponse {
+  message: string;
+  posts: GetPostResponse[];
+}
+
 export interface GetPostResponse {
   id: number;
   content: string;
@@ -15,11 +20,13 @@ export interface GetPostResponse {
     created_by: string;
     created_at: string;
     is_deleted: boolean;
-  };
+  }[];
 }
 
-export const getPostApi = async () => {
-  return fetchWithConfig("/api/posts", {
+export const getPostApi = async (): Promise<GetPostResponse[]> => {
+  const response = (await fetchWithConfig("/api/posts", {
     method: "GET",
-  });
+  })) as PostApiResponse;
+  console.log(response.message);
+  return response.posts;
 };

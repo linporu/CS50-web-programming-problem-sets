@@ -20,25 +20,30 @@ declare global {
 }
 
 // Mock API response data
-const mockPosts = [
-  {
-    id: 1,
-    content: "Test post",
-    created_by: "testuser",
-    created_at: "2024-03-20T10:00:00Z",
-    updated_at: "2024-03-20T10:00:00Z",
-    is_deleted: false,
-    likes_count: 0,
-    comments_count: 0,
-    comments: {
+const mockApiResponse = {
+  message: "Posts retrieved successfully",
+  posts: [
+    {
       id: 1,
-      content: "Test comment",
-      created_by: "commentuser",
-      created_at: "2024-03-20T10:01:00Z",
+      content: "Test post",
+      created_by: "testuser",
+      created_at: "2024-03-20T10:00:00Z",
+      updated_at: "2024-03-20T10:00:00Z",
       is_deleted: false,
+      likes_count: 0,
+      comments_count: 0,
+      comments: [
+        {
+          id: 1,
+          content: "Test comment",
+          created_by: "commentuser",
+          created_at: "2024-03-20T10:01:00Z",
+          is_deleted: false,
+        },
+      ],
     },
-  },
-];
+  ],
+};
 
 // Setup MSW server
 const server = setupServer(
@@ -54,7 +59,7 @@ const server = setupServer(
 
   // Mock posts endpoint with full URL
   http.get(`${API_BASE_URL}/api/posts`, () => {
-    return new HttpResponse(JSON.stringify(mockPosts), {
+    return new HttpResponse(JSON.stringify(mockApiResponse), {
       status: 200,
       headers: {
         "content-type": "application/json",
@@ -91,10 +96,9 @@ afterAll(() => {
 describe("postService", () => {
   describe("getPostApi", () => {
     it("should successfully fetch posts list", async () => {
-      // Mock successful response
       server.use(
         http.get(`${API_BASE_URL}/api/posts`, () => {
-          return new HttpResponse(JSON.stringify(mockPosts), {
+          return new HttpResponse(JSON.stringify(mockApiResponse), {
             status: 200,
             headers: {
               "content-type": "application/json",
@@ -104,7 +108,7 @@ describe("postService", () => {
       );
 
       const response = await getPostApi();
-      expect(response).toEqual(mockPosts);
+      expect(response).toEqual(mockApiResponse.posts);
     });
 
     it("should throw error when API fails", async () => {
