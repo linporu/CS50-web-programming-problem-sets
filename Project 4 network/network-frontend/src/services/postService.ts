@@ -30,3 +30,30 @@ export const getPostApi = async (): Promise<GetPostResponse[]> => {
   console.log(response.message);
   return response.posts;
 };
+
+interface CreatePostResponse {
+  message: string;
+  error?: string;
+}
+
+export const createPostApi = async (
+  content: string
+): Promise<CreatePostResponse> => {
+  const requestBody = {
+    content: content,
+  };
+
+  const response = (await fetchWithConfig("/api/posts", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(requestBody),
+  })) as CreatePostResponse;
+
+  if (response.error) {
+    throw new Error(response.error);
+  }
+
+  return response;
+};

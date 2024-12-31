@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import Post from "./Post";
 import { getPostApi } from "../../services/postService";
+import { CreatePost } from "./CreatePost";
 
 type Post = {
   id: number;
@@ -25,24 +26,24 @@ export default function PostList() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchPosts = async () => {
-      console.log("Starting to fetch posts...");
-      try {
-        const data = await getPostApi();
-        console.log("Received data:", data);
-        setPosts(data);
-      } catch (err) {
-        console.error("Fetch error details:", {
-          message: err instanceof Error ? err.message : "Unknown error",
-          error: err,
-        });
-        setError(err instanceof Error ? err.message : "An error occurred");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchPosts = async () => {
+    console.log("Starting to fetch posts...");
+    try {
+      const data = await getPostApi();
+      console.log("Received data:", data);
+      setPosts(data);
+    } catch (err) {
+      console.error("Fetch error details:", {
+        message: err instanceof Error ? err.message : "Unknown error",
+        error: err,
+      });
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchPosts();
   }, []);
 
@@ -60,6 +61,7 @@ export default function PostList() {
 
   return (
     <div className="space-y-4">
+      <CreatePost onPostCreated={() => fetchPosts()} />
       {posts.map((post) => (
         <Post key={post.id} {...post} />
       ))}
