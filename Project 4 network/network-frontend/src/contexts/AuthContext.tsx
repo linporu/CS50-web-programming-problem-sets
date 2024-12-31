@@ -40,7 +40,7 @@ const defaultContextValue: AuthContextType = {
 
 // Create the context with default values
 // The _isDefault flag helps us detect when context is being used outside provider
-const AuthContext = createContext<AuthContextType>({
+export const AuthContext = createContext<AuthContextType>({
   ...defaultContextValue,
   _isDefault: true,
 });

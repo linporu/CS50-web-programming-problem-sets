@@ -57,3 +57,31 @@ export const createPostApi = async (
 
   return response;
 };
+
+interface EditPostResponse {
+  message: string;
+  error?: string;
+}
+
+export const editPostApi = async (
+  post_id: number,
+  content: string
+): Promise<EditPostResponse> => {
+  const requestBody = {
+    content: content,
+  };
+
+  const response = (await fetchWithConfig(`/api/posts/${post_id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(requestBody),
+  })) as EditPostResponse;
+
+  if (response.error) {
+    throw new Error(response.error);
+  }
+
+  return response;
+};
