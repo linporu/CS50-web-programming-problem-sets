@@ -1,8 +1,17 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  afterEach,
+  vi,
+} from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import PostList from "./PostList";
+import { AuthContext } from "@/contexts/AuthContext";
 
 // Mock data
 const mockPosts = [
@@ -58,13 +67,29 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 describe("PostList Component", () => {
+  const renderWithAuth = (component: React.ReactNode) => {
+    return render(
+      <AuthContext.Provider
+        value={{
+          user: null,
+          setUser: vi.fn(),
+          isAuthenticated: false,
+          clearAuth: vi.fn(),
+          _isDefault: false,
+        }}
+      >
+        {component}
+      </AuthContext.Provider>
+    );
+  };
+
   it("shows loading state initially", () => {
-    render(<PostList />);
+    renderWithAuth(<PostList />);
     expect(screen.getByText("Loading posts...")).toBeInTheDocument();
   });
 
   it("renders posts successfully", async () => {
-    render(<PostList />);
+    renderWithAuth(<PostList />);
 
     // Wait for loading to finish and content to appear
     await waitFor(() => {
@@ -73,6 +98,7 @@ describe("PostList Component", () => {
 
     // Check if post content is rendered
     expect(screen.getByText("Test post 1")).toBeInTheDocument();
+    expect(screen.getByText("user1")).toBeInTheDocument();
   });
 
   it("shows error message when API call fails", async () => {
@@ -87,7 +113,7 @@ describe("PostList Component", () => {
       })
     );
 
-    render(<PostList />);
+    renderWithAuth(<PostList />);
     await waitFor(() => {
       expect(screen.getByText("An error occurred")).toBeInTheDocument();
     });
@@ -110,9 +136,20 @@ describe("PostList Component", () => {
       })
     );
 
-    render(<PostList />);
+    renderWithAuth(<PostList />);
     await waitFor(() => {
       expect(screen.getByText("No posts yet.")).toBeInTheDocument();
+    });
+  });
+
+  it("renders CreatePost component", async () => {
+    renderWithAuth(<PostList />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByPlaceholderText("What's on your mind?")
+      ).toBeInTheDocument();
+      expect(screen.getByText("Post")).toBeInTheDocument();
     });
   });
 });

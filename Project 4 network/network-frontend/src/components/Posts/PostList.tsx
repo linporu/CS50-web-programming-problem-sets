@@ -29,9 +29,9 @@ export default function PostList() {
   const fetchPosts = async () => {
     console.log("Starting to fetch posts...");
     try {
-      const data = await getPostApi();
-      console.log("Received data:", data);
-      setPosts(data);
+      const posts = await getPostApi();
+      console.log("Received posts:", posts);
+      setPosts(posts);
     } catch (err) {
       console.error("Fetch error details:", {
         message: err instanceof Error ? err.message : "Unknown error",
@@ -63,7 +63,7 @@ export default function PostList() {
     <div className="space-y-4">
       <CreatePost onPostCreated={() => fetchPosts()} />
       {posts.map((post) => (
-        <Post key={post.id} {...post} />
+        <Post key={post.id} {...post} onPostUpdate={fetchPosts} />
       ))}
     </div>
   );

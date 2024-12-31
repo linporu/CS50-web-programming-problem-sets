@@ -21,12 +21,12 @@ interface User {
 // Define the shape of our Authentication Context
 // This interface specifies all values and functions that will be available through the context
 interface AuthContextType {
-  user: User | null;                    // Current user data or null if not authenticated
+  user: User | null; // Current user data or null if not authenticated
   setUser: (user: User | null) => void; // Function to update user data
-  isAuthenticated: boolean;             // Quick check if user is logged in
-  clearAuth: () => void;                // Function to log out user
-  loading?: boolean;                    // Loading state during auth checks
-  _isDefault?: boolean;                 // Internal flag to check if using default context
+  isAuthenticated: boolean; // Quick check if user is logged in
+  clearAuth: () => void; // Function to log out user
+  loading?: boolean; // Loading state during auth checks
+  _isDefault?: boolean; // Internal flag to check if using default context
 }
 
 // Create default values for the context
@@ -40,7 +40,7 @@ const defaultContextValue: AuthContextType = {
 
 // Create the context with default values
 // The _isDefault flag helps us detect when context is being used outside provider
-const AuthContext = createContext<AuthContextType>({
+export const AuthContext = createContext<AuthContextType>({
   ...defaultContextValue,
   _isDefault: true,
 });
