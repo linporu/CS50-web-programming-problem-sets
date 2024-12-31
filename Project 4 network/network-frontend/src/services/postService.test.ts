@@ -9,7 +9,7 @@ import {
 } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { getPostApi, createPostApi } from "./postService";
+import { getPostApi, createPostApi, editPostApi } from "./postService";
 import { API_BASE_URL } from "./api";
 
 // Declare fetch as a global type
@@ -49,6 +49,10 @@ const mockCreatePostResponse = {
   message: "Post created successfully",
 };
 
+const mockEditPostResponse = {
+  message: "Post updated successfully",
+};
+
 // Setup MSW server
 const server = setupServer(
   // Mock CSRF endpoint
@@ -74,6 +78,16 @@ const server = setupServer(
   // Mock POST posts endpoint
   http.post(`${API_BASE_URL}/api/posts`, () => {
     return new HttpResponse(JSON.stringify(mockCreatePostResponse), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+  }),
+
+  // Mock PATCH posts endpoint
+  http.patch(`${API_BASE_URL}/api/posts/:id`, () => {
+    return new HttpResponse(JSON.stringify(mockEditPostResponse), {
       status: 200,
       headers: {
         "content-type": "application/json",
@@ -155,7 +169,38 @@ describe("postService", () => {
         })
       );
 
-      await expect(createPostApi("Test content")).rejects.toThrow("Failed to create post");
+      await expect(createPostApi("Test content")).rejects.toThrow(
+        "Failed to create post"
+      );
+    });
+  });
+
+  describe("editPostApi", () => {
+    it("should successfully edit a post", async () => {
+      const postId = 1;
+      const content = "Updated post content";
+      const response = await editPostApi(postId, content);
+      expect(response).toEqual(mockEditPostResponse);
+    });
+
+    it("should throw error when API fails", async () => {
+      server.use(
+        http.patch(`${API_BASE_URL}/api/posts/1`, () => {
+          return new HttpResponse(
+            JSON.stringify({ error: "Failed to update post" }),
+            {
+              status: 400,
+              headers: {
+                "content-type": "application/json",
+              },
+            }
+          );
+        })
+      );
+
+      await expect(editPostApi(1, "Updated content")).rejects.toThrow(
+        "Failed to update post"
+      );
     });
   });
 });
