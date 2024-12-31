@@ -9,7 +9,7 @@ import {
 } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { getPostApi } from "./postService";
+import { getPostApi, createPostApi } from "./postService";
 import { API_BASE_URL } from "./api";
 
 // Declare fetch as a global type
@@ -20,7 +20,7 @@ declare global {
 }
 
 // Mock API response data
-const mockApiResponse = {
+const mockGetPostsResponse = {
   message: "Posts retrieved successfully",
   posts: [
     {
@@ -45,9 +45,13 @@ const mockApiResponse = {
   ],
 };
 
+const mockCreatePostResponse = {
+  message: "Post created successfully",
+};
+
 // Setup MSW server
 const server = setupServer(
-  // Mock CSRF endpoint with full URL
+  // Mock CSRF endpoint
   http.get(`${API_BASE_URL}/csrf`, () => {
     return new HttpResponse(null, {
       status: 200,
@@ -57,9 +61,19 @@ const server = setupServer(
     });
   }),
 
-  // Mock posts endpoint with full URL
+  // Mock GET posts endpoint
   http.get(`${API_BASE_URL}/api/posts`, () => {
-    return new HttpResponse(JSON.stringify(mockApiResponse), {
+    return new HttpResponse(JSON.stringify(mockGetPostsResponse), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+  }),
+
+  // Mock POST posts endpoint
+  http.post(`${API_BASE_URL}/api/posts`, () => {
+    return new HttpResponse(JSON.stringify(mockCreatePostResponse), {
       status: 200,
       headers: {
         "content-type": "application/json",
@@ -96,23 +110,11 @@ afterAll(() => {
 describe("postService", () => {
   describe("getPostApi", () => {
     it("should successfully fetch posts list", async () => {
-      server.use(
-        http.get(`${API_BASE_URL}/api/posts`, () => {
-          return new HttpResponse(JSON.stringify(mockApiResponse), {
-            status: 200,
-            headers: {
-              "content-type": "application/json",
-            },
-          });
-        })
-      );
-
       const response = await getPostApi();
-      expect(response).toEqual(mockApiResponse.posts);
+      expect(response).toEqual(mockGetPostsResponse.posts);
     });
 
     it("should throw error when API fails", async () => {
-      // Mock API error with full URL
       server.use(
         http.get(`${API_BASE_URL}/api/posts`, () => {
           return new HttpResponse(
@@ -128,6 +130,32 @@ describe("postService", () => {
       );
 
       await expect(getPostApi()).rejects.toThrow("Internal Server Error");
+    });
+  });
+
+  describe("createPostApi", () => {
+    it("should successfully create a post", async () => {
+      const content = "Test post content";
+      const response = await createPostApi(content);
+      expect(response).toEqual(mockCreatePostResponse);
+    });
+
+    it("should throw error when API fails", async () => {
+      server.use(
+        http.post(`${API_BASE_URL}/api/posts`, () => {
+          return new HttpResponse(
+            JSON.stringify({ error: "Failed to create post" }),
+            {
+              status: 400,
+              headers: {
+                "content-type": "application/json",
+              },
+            }
+          );
+        })
+      );
+
+      await expect(createPostApi("Test content")).rejects.toThrow("Failed to create post");
     });
   });
 });
