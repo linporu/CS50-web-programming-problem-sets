@@ -36,25 +36,29 @@ describe("MainLayout", () => {
     );
   });
 
+  it("renders navigation with correct styling", async () => {
+    renderMainLayout();
+    const nav = await waitFor(() => screen.getByRole("navigation"));
+    expect(nav).toHaveClass("bg-gray-100 p-4");
+  });
+
   it("renders navigation and content", async () => {
     renderMainLayout();
-    // Wait for the loading state to resolve
     await waitFor(() => {
-      expect(screen.getByText("Network")).toBeDefined();
+      expect(screen.getByRole("heading", { name: "Network" })).toBeDefined();
       expect(screen.getByText("Test Content")).toBeDefined();
     });
   });
 
   it("shows login and register links when user is not authenticated", async () => {
     renderMainLayout();
-    // Wait for the loading state to resolve
     await waitFor(() => {
-      expect(screen.getByText("Login")).toBeDefined();
-      expect(screen.getByText("Register")).toBeDefined();
+      expect(screen.getByRole("link", { name: "Login" })).toBeDefined();
+      expect(screen.getByRole("link", { name: "Register" })).toBeDefined();
     });
   });
 
-  it("shows welcome message and home link when user is authenticated", async () => {
+  it("shows welcome message, home and following links when user is authenticated", async () => {
     // Mock successful authentication
     const mockCheckAuthStatus = vi.mocked(authService.checkAuthStatus);
     mockCheckAuthStatus.mockResolvedValue({
@@ -72,7 +76,8 @@ describe("MainLayout", () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Welcome, testuser!/)).toBeDefined();
-      expect(screen.getByText("Home")).toBeDefined();
+      expect(screen.getByRole("link", { name: "Home" })).toBeDefined();
+      expect(screen.getByRole("link", { name: "Following" })).toBeDefined();
     });
   });
 
@@ -110,19 +115,21 @@ describe("MainLayout", () => {
 
       // Click logout button
       const logoutButton = screen.getByRole("button", { name: /logout/i });
+      expect(logoutButton).toHaveClass("bg-transparent", "hover:text-gray-700");
       await user.click(logoutButton);
 
       // Now we should see the loading state
       expect(screen.getByText("Logging out...")).toBeDefined();
       expect(logoutButton).toHaveProperty("disabled", true);
+      expect(logoutButton).toHaveClass("disabled:opacity-50");
 
       // Resolve the logout promise
       resolveLogout!(undefined);
 
       // Verify final state
       await waitFor(() => {
-        expect(screen.getByText("Login")).toBeDefined();
-        expect(screen.getByText("Register")).toBeDefined();
+        expect(screen.getByRole("link", { name: "Login" })).toBeDefined();
+        expect(screen.getByRole("link", { name: "Register" })).toBeDefined();
       });
     });
 
@@ -141,9 +148,10 @@ describe("MainLayout", () => {
       const logoutButton = screen.getByRole("button", { name: /logout/i });
       await user.click(logoutButton);
 
-      // Verify error message
+      // Verify error message appears in the nav
       await waitFor(() => {
-        expect(screen.getByText("Network error")).toBeDefined();
+        const errorMessage = screen.getByText("Network error");
+        expect(errorMessage).toHaveClass("text-red-500");
       });
 
       // Verify user is still logged in
@@ -169,6 +177,7 @@ describe("MainLayout", () => {
       // Click logout button
       const logoutButton = screen.getByRole("button", { name: /logout/i });
       await user.click(logoutButton);
+
       // Verify button is disabled during loading
       expect(logoutButton).toBeDisabled();
       expect(screen.getByText("Logging out...")).toBeDefined();
@@ -178,7 +187,7 @@ describe("MainLayout", () => {
 
       // Verify final state
       await waitFor(() => {
-        expect(screen.getByText("Login")).toBeDefined();
+        expect(screen.getByRole("link", { name: "Login" })).toBeDefined();
       });
     });
   });
