@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Post from "./Post";
-import { getPostApi } from "../../services/postService";
+import { getPostApi, getFollowingPostApi } from "../../services/postService";
 import { CreatePost } from "./CreatePost";
 
 type Post = {
@@ -21,15 +21,20 @@ type Post = {
   }[];
 };
 
-export default function PostList() {
+interface PostListProps {
+  mode?: "all" | "following";
+}
+
+export default function PostList({ mode = "all" }: PostListProps) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchPosts = async () => {
-    console.log("Starting to fetch posts...");
+  const fetchPosts = useCallback(async () => {
+    console.log(`Starting to fetch ${mode} posts...`);
     try {
-      const posts = await getPostApi();
+      const posts =
+        mode === "following" ? await getFollowingPostApi() : await getPostApi();
       console.log("Received posts:", posts);
       setPosts(posts);
     } catch (err) {
@@ -41,11 +46,11 @@ export default function PostList() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [mode]);
 
   useEffect(() => {
     fetchPosts();
-  }, []);
+  }, [fetchPosts]);
 
   if (isLoading) {
     return <div className="text-center py-4">Loading posts...</div>;
@@ -61,7 +66,7 @@ export default function PostList() {
 
   return (
     <div className="space-y-4">
-      <CreatePost onPostCreated={() => fetchPosts()} />
+      {mode === "all" && <CreatePost onPostCreated={() => fetchPosts()} />}
       {posts.map((post) => (
         <Post key={post.id} {...post} onPostUpdate={fetchPosts} />
       ))}
