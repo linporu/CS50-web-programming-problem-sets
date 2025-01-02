@@ -4,8 +4,14 @@ import MainLayout from "./layouts/MainLayout";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import FollowingPage from "./pages/FollowingPage";
+import { useEffect } from "react";
 
 function App() {
+  useEffect(() => {
+    document.title = "Network";
+  }, []);
+
   return (
     <AuthProvider>
       <Router>
@@ -14,6 +20,7 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/following" element={<FollowingPage />} />
           </Routes>
         </MainLayout>
       </Router>

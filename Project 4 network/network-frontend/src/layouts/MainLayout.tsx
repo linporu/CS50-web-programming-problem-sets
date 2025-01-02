@@ -32,7 +32,7 @@ export default function MainLayout({
 
   return (
     <div>
-      <nav className="bg-gray-100 p-4">
+      <nav role="navigation" className="bg-gray-100 p-4">
         <h1>Network</h1>
         {error && <div className="text-red-500">{error}</div>}
         <div className="space-x-4">
@@ -40,6 +40,7 @@ export default function MainLayout({
             <>
               <span>Welcome, {user.username}!</span>
               <Link to="/">Home</Link>
+              <Link to="/following">Following</Link>
               <button
                 onClick={handleLogout}
                 disabled={isLoading}
