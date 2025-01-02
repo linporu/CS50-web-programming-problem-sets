@@ -9,7 +9,12 @@ import {
 } from "vitest";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import { getPostApi, createPostApi, editPostApi } from "./postService";
+import {
+  getPostApi,
+  createPostApi,
+  editPostApi,
+  getFollowingPostApi,
+} from "./postService";
 import { API_BASE_URL } from "./api";
 
 // Declare fetch as a global type
@@ -45,6 +50,23 @@ const mockGetPostsResponse = {
   ],
 };
 
+const mockGetFollowingPostsResponse = {
+  message: "Following posts retrieved successfully",
+  posts: [
+    {
+      id: 2,
+      content: "Following test post",
+      created_by: "followeduser",
+      created_at: "2024-03-20T10:00:00Z",
+      updated_at: "2024-03-20T10:00:00Z",
+      is_deleted: false,
+      likes_count: 0,
+      comments_count: 0,
+      comments: [],
+    },
+  ],
+};
+
 const mockCreatePostResponse = {
   message: "Post created successfully",
 };
@@ -68,6 +90,16 @@ const server = setupServer(
   // Mock GET posts endpoint
   http.get(`${API_BASE_URL}/api/posts`, () => {
     return new HttpResponse(JSON.stringify(mockGetPostsResponse), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+  }),
+
+  // Mock GET following posts endpoint
+  http.get(`${API_BASE_URL}/api/posts/following`, () => {
+    return new HttpResponse(JSON.stringify(mockGetFollowingPostsResponse), {
       status: 200,
       headers: {
         "content-type": "application/json",
@@ -200,6 +232,33 @@ describe("postService", () => {
 
       await expect(editPostApi(1, "Updated content")).rejects.toThrow(
         "Failed to update post"
+      );
+    });
+  });
+
+  describe("getFollowingPostApi", () => {
+    it("should successfully fetch following posts list", async () => {
+      const response = await getFollowingPostApi();
+      expect(response).toEqual(mockGetFollowingPostsResponse.posts);
+    });
+
+    it("should throw error when API fails", async () => {
+      server.use(
+        http.get(`${API_BASE_URL}/api/posts/following`, () => {
+          return new HttpResponse(
+            JSON.stringify({ error: "Internal Server Error" }),
+            {
+              status: 500,
+              headers: {
+                "content-type": "application/json",
+              },
+            }
+          );
+        })
+      );
+
+      await expect(getFollowingPostApi()).rejects.toThrow(
+        "Internal Server Error"
       );
     });
   });
