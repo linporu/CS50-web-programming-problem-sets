@@ -93,3 +93,25 @@ export const editPostApi = async (
 
   return response;
 };
+
+interface DeletePostResponse {
+  message: string;
+  error?: string;
+}
+
+export const deletePostApi = async (
+  post_id: number
+): Promise<DeletePostResponse> => {
+  const response = (await fetchWithConfig(`/api/posts/${post_id}`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  })) as DeletePostResponse;
+
+  if (response.error) {
+    throw new Error(response.error);
+  }
+
+  return response;
+};
