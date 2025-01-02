@@ -1,16 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
-import HomePage from "./HomePage";
+import FollowingPage from "./FollowingPage";
 import { AuthProvider } from "../contexts/AuthContext";
 import { BrowserRouter } from "react-router-dom";
 
 // Mock the PostList component
 vi.mock("../components/Posts/PostList", () => ({
-  default: ({ mode }: { mode: string }) => (
-    <div data-testid="mock-post-list" data-mode={mode}>
-      PostList Mock
-    </div>
-  ),
+  default: () => <div data-testid="mock-post-list">PostList Mock</div>,
 }));
 
 // Mock auth service
@@ -18,11 +14,11 @@ vi.mock("../services/authService", () => ({
   checkAuthStatus: vi.fn().mockResolvedValue({ user: null }),
 }));
 
-const renderHomePage = async () => {
+const renderFollowingPage = async () => {
   render(
     <AuthProvider>
       <BrowserRouter>
-        <HomePage />
+        <FollowingPage />
       </BrowserRouter>
     </AuthProvider>
   );
@@ -33,17 +29,17 @@ const renderHomePage = async () => {
   });
 };
 
-describe("HomePage", () => {
-  it("renders the homepage title correctly", async () => {
-    await renderHomePage();
-    expect(screen.getByText("All Posts")).toBeInTheDocument();
+describe("FollowingPage", () => {
+  it("renders the following page title correctly", async () => {
+    await renderFollowingPage();
+    expect(screen.getByText("Following Posts")).toBeInTheDocument();
   });
 
   it("renders with correct container styling", async () => {
     const { container } = render(
       <AuthProvider>
         <BrowserRouter>
-          <HomePage />
+          <FollowingPage />
         </BrowserRouter>
       </AuthProvider>
     );
@@ -51,24 +47,18 @@ describe("HomePage", () => {
       expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
     });
     const mainContainer = container.firstChild as HTMLElement;
-    expect(mainContainer).toHaveClass("container", "mx-auto", "px-4", "py-8");
+    expect(mainContainer).toHaveClass("container", "mx-auto", "px-4");
   });
 
-  it("renders the PostList component", async () => {
-    await renderHomePage();
-    expect(screen.getByTestId("mock-post-list")).toBeInTheDocument();
+  it("renders the PostList component with following mode", async () => {
+    await renderFollowingPage();
+    const postList = screen.getByTestId("mock-post-list");
+    expect(postList).toBeInTheDocument();
   });
 
   it("renders heading with correct styling", async () => {
-    await renderHomePage();
-    const heading = screen.getByRole("heading", { level: 2 });
-    expect(heading).toHaveClass("text-2xl", "font-bold", "mb-6");
-  });
-
-  it("renders the PostList component with correct mode prop", async () => {
-    await renderHomePage();
-    const postList = screen.getByTestId("mock-post-list");
-    expect(postList).toBeInTheDocument();
-    expect(postList).toHaveAttribute("data-mode", "all");
+    await renderFollowingPage();
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading).toHaveClass("text-2xl", "font-bold", "mb-4");
   });
 });

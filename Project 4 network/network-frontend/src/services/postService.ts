@@ -31,6 +31,14 @@ export const getPostApi = async (): Promise<GetPostResponse[]> => {
   return response.posts;
 };
 
+export const getFollowingPostApi = async (): Promise<GetPostResponse[]> => {
+  const response = (await fetchWithConfig("/api/posts/following", {
+    method: "GET",
+  })) as PostApiResponse;
+  console.log(response.message);
+  return response.posts;
+};
+
 interface CreatePostResponse {
   message: string;
   error?: string;
