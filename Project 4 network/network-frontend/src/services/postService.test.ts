@@ -14,6 +14,7 @@ import {
   createPostApi,
   editPostApi,
   getFollowingPostApi,
+  deletePostApi,
 } from "./postService";
 import { API_BASE_URL } from "./api";
 
@@ -75,6 +76,10 @@ const mockEditPostResponse = {
   message: "Post updated successfully",
 };
 
+const mockDeletePostResponse = {
+  message: "Post deleted successfully",
+};
+
 // Setup MSW server
 const server = setupServer(
   // Mock CSRF endpoint
@@ -120,6 +125,16 @@ const server = setupServer(
   // Mock PATCH posts endpoint
   http.patch(`${API_BASE_URL}/api/posts/:id`, () => {
     return new HttpResponse(JSON.stringify(mockEditPostResponse), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+  }),
+
+  // Mock DELETE posts endpoint
+  http.delete(`${API_BASE_URL}/api/posts/:id`, () => {
+    return new HttpResponse(JSON.stringify(mockDeletePostResponse), {
       status: 200,
       headers: {
         "content-type": "application/json",
@@ -260,6 +275,32 @@ describe("postService", () => {
       await expect(getFollowingPostApi()).rejects.toThrow(
         "Internal Server Error"
       );
+    });
+  });
+
+  describe("deletePostApi", () => {
+    it("should successfully delete a post", async () => {
+      const postId = 1;
+      const response = await deletePostApi(postId);
+      expect(response).toEqual(mockDeletePostResponse);
+    });
+
+    it("should throw error when API fails", async () => {
+      server.use(
+        http.delete(`${API_BASE_URL}/api/posts/1`, () => {
+          return new HttpResponse(
+            JSON.stringify({ error: "Failed to delete post" }),
+            {
+              status: 400,
+              headers: {
+                "content-type": "application/json",
+              },
+            }
+          );
+        })
+      );
+
+      await expect(deletePostApi(1)).rejects.toThrow("Failed to delete post");
     });
   });
 });

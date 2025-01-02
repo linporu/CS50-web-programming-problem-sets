@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { editPostApi } from "@/services/postService";
+import { editPostApi, deletePostApi } from "@/services/postService";
 import { useState } from "react";
 
 interface PostProps {
@@ -79,6 +79,22 @@ export default function Post({
     return;
   };
 
+  const handleDeleteClick = async () => {
+    try {
+      await deletePostApi(id);
+      setError(null);
+      onPostUpdate?.();
+    } catch (error) {
+      console.error("Failed to delete post:", error);
+      setError(
+        `Failed to delete post: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+    return;
+  };
+
   return (
     <div className="rounded-lg border border-gray-200 p-4 shadow-sm">
       {/* Post Header */}
@@ -91,12 +107,20 @@ export default function Post({
           </span>
         </div>
         {isPostCreator && !isEditing && (
-          <button
-            className="text-sm text-gray-600 hover:text-blue-500"
-            onClick={handleEditClick}
-          >
-            Edit
-          </button>
+          <div className="flex gap-2">
+            <button
+              className="text-sm text-gray-600 hover:text-blue-500"
+              onClick={handleEditClick}
+            >
+              Edit
+            </button>
+            <button
+              className="text-sm text-gray-600 hover:text-blue-500"
+              onClick={handleDeleteClick}
+            >
+              Delete
+            </button>
+          </div>
         )}
       </div>
 
