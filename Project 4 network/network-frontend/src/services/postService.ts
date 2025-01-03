@@ -24,19 +24,39 @@ export interface GetPostResponse {
 }
 
 export const getPostApi = async (): Promise<GetPostResponse[]> => {
-  const response = (await fetchWithConfig("/api/posts", {
+  const response = await fetchWithConfig("/api/posts", {
     method: "GET",
-  })) as PostApiResponse;
-  console.log(response.message);
-  return response.posts;
+  });
+
+  // Handle both array and object response formats
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  // Handle the case where response is an object with posts property
+  if (response && "posts" in response) {
+    return (response as PostApiResponse).posts;
+  }
+
+  throw new Error("Invalid response format");
 };
 
 export const getFollowingPostApi = async (): Promise<GetPostResponse[]> => {
-  const response = (await fetchWithConfig("/api/posts/following", {
+  const response = await fetchWithConfig("/api/posts/following", {
     method: "GET",
-  })) as PostApiResponse;
-  console.log(response.message);
-  return response.posts;
+  });
+
+  // Handle both array and object response formats
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  // Handle the case where response is an object with posts property
+  if (response && "posts" in response) {
+    return (response as PostApiResponse).posts;
+  }
+
+  throw new Error("Invalid response format");
 };
 
 interface CreatePostResponse {
