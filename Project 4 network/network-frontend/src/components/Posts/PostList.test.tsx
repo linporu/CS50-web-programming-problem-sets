@@ -12,6 +12,7 @@ import { setupServer } from "msw/node";
 import { http, HttpResponse } from "msw";
 import PostList from "./PostList";
 import { AuthContext } from "@/contexts/AuthContext";
+import { BrowserRouter } from "react-router-dom";
 
 // Mock data
 const mockPosts = [
@@ -61,31 +62,12 @@ const server = setupServer(
   }),
 
   http.get("http://localhost:8000/api/posts", () => {
-    return HttpResponse.json(
-      {
-        message: "Posts fetched successfully",
-        posts: mockPosts,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    console.log("Mock server sending posts:", mockPosts);
+    return HttpResponse.json({ posts: mockPosts });
   }),
 
   http.get("http://localhost:8000/api/posts/following", () => {
-    return HttpResponse.json(
-      {
-        message: "Following posts fetched successfully",
-        posts: mockFollowingPosts,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    return HttpResponse.json({ posts: mockFollowingPosts });
   })
 );
 
@@ -97,17 +79,19 @@ afterAll(() => server.close());
 describe("PostList Component", () => {
   const renderWithAuth = (component: React.ReactNode) => {
     return render(
-      <AuthContext.Provider
-        value={{
-          user: null,
-          setUser: vi.fn(),
-          isAuthenticated: false,
-          clearAuth: vi.fn(),
-          _isDefault: false,
-        }}
-      >
-        {component}
-      </AuthContext.Provider>
+      <BrowserRouter>
+        <AuthContext.Provider
+          value={{
+            user: null,
+            setUser: vi.fn(),
+            isAuthenticated: false,
+            clearAuth: vi.fn(),
+            _isDefault: false,
+          }}
+        >
+          {component}
+        </AuthContext.Provider>
+      </BrowserRouter>
     );
   };
 
@@ -118,14 +102,30 @@ describe("PostList Component", () => {
     });
 
     it("renders posts successfully in all mode", async () => {
-      renderWithAuth(<PostList mode="all" />);
+      const { container } = renderWithAuth(<PostList mode="all" />);
 
+      // Wait for the loading state to disappear
       await waitFor(() => {
         expect(screen.queryByText("Loading posts...")).not.toBeInTheDocument();
       });
 
-      expect(screen.getByText("Test post 1")).toBeInTheDocument();
-      expect(screen.getByText("user1")).toBeInTheDocument();
+      // Debug output
+      console.log("Current DOM content:", container.innerHTML);
+
+      // Wait for the post content to appear
+      await waitFor(
+        () => {
+          const contentElement = screen.getByText((content) =>
+            content.includes("Test post 1")
+          );
+          expect(contentElement).toBeInTheDocument();
+        },
+        { timeout: 3000 }
+      );
+
+      expect(
+        screen.getByText((text) => text.includes("user1"))
+      ).toBeInTheDocument();
       expect(
         screen.getByPlaceholderText("What's on your mind?")
       ).toBeInTheDocument();

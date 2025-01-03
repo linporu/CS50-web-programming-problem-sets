@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { BrowserRouter } from "react-router-dom";
 import Post from "./Post";
 import { AuthContext } from "@/contexts/AuthContext";
 import { editPostApi, deletePostApi } from "@/services/postService";
@@ -57,7 +58,7 @@ describe("Post Component", () => {
           _isDefault: false,
         }}
       >
-        {component}
+        <BrowserRouter>{component}</BrowserRouter>
       </AuthContext.Provider>
     );
   };
@@ -69,13 +70,20 @@ describe("Post Component", () => {
   describe("Basic Rendering", () => {
     it("renders post content correctly", () => {
       renderWithAuth(<Post {...mockPostProps} />);
-      expect(screen.getByText("Test post content")).toBeDefined();
-      expect(screen.getByText("testuser")).toBeDefined();
+      expect(screen.getByText("Test post content")).toBeInTheDocument();
+      expect(screen.getByText("testuser")).toBeInTheDocument();
+    });
+
+    it("renders username as a link to profile page", () => {
+      renderWithAuth(<Post {...mockPostProps} />);
+      const usernameLink = screen.getByRole("link", { name: "testuser" });
+      expect(usernameLink).toBeInTheDocument();
+      expect(usernameLink).toHaveAttribute("href", "/profile/testuser");
     });
 
     it("shows created_at when updated_at is empty", () => {
       renderWithAuth(<Post {...mockPostProps} />);
-      expect(screen.getByText("2024-03-20T10:00:00Z")).toBeDefined();
+      expect(screen.getByText("2024-03-20T10:00:00Z")).toBeInTheDocument();
     });
 
     it("shows updated_at when available", () => {
@@ -84,27 +92,58 @@ describe("Post Component", () => {
         updated_at: "2024-03-20T11:00:00Z",
       };
       renderWithAuth(<Post {...updatedProps} />);
-      expect(screen.getByText("2024-03-20T11:00:00Z")).toBeDefined();
+      expect(screen.getByText("2024-03-20T11:00:00Z")).toBeInTheDocument();
     });
 
     it("displays correct likes and comments count", () => {
       renderWithAuth(<Post {...mockPostProps} />);
-      expect(screen.getByText("5")).toBeDefined();
-      expect(screen.getByText("3")).toBeDefined();
+      const likeButton = screen.getByRole("button", { name: /like/i });
+      const commentButton = screen.getByRole("button", { name: /comment/i });
+
+      expect(likeButton).toHaveTextContent("5");
+      expect(commentButton).toHaveTextContent("3");
+    });
+
+    it("renders like and comment buttons with correct styling", () => {
+      renderWithAuth(<Post {...mockPostProps} />);
+      const likeButton = screen.getByRole("button", { name: /like/i });
+      const commentButton = screen.getByRole("button", { name: /comment/i });
+
+      expect(likeButton).toHaveClass("hover:text-blue-500");
+      expect(commentButton).toHaveClass("hover:text-blue-500");
     });
   });
 
   describe("Post Creator Actions", () => {
     it("shows edit and delete buttons when user is post creator", () => {
       renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
-      expect(screen.getByText("Edit")).toBeDefined();
-      expect(screen.getByText("Delete")).toBeDefined();
+      expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Delete" })
+      ).toBeInTheDocument();
     });
 
     it("does not show edit and delete buttons when user is not post creator", () => {
       renderWithAuth(<Post {...mockPostProps} />, { username: "otheruser" });
-      expect(screen.queryByText("Edit")).toBeNull();
-      expect(screen.queryByText("Delete")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    });
+
+    it("shows edit and delete buttons with correct styling", () => {
+      renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
+      const editButton = screen.getByRole("button", { name: "Edit" });
+      const deleteButton = screen.getByRole("button", { name: "Delete" });
+
+      expect(editButton).toHaveClass(
+        "text-sm",
+        "text-gray-600",
+        "hover:text-blue-500"
+      );
+      expect(deleteButton).toHaveClass(
+        "text-sm",
+        "text-gray-600",
+        "hover:text-blue-500"
+      );
     });
   });
 
@@ -113,39 +152,52 @@ describe("Post Component", () => {
       const user = userEvent.setup();
       renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
 
-      await user.click(screen.getByText("Edit"));
-      expect(screen.getByRole("textbox")).toHaveValue("Test post content");
+      await user.click(screen.getByRole("button", { name: "Edit" }));
+      const textarea = screen.getByRole("textbox");
+      expect(textarea).toBeInTheDocument();
+      expect(textarea).toHaveValue("Test post content");
+      expect(textarea).toHaveClass(
+        "w-full",
+        "p-2",
+        "border",
+        "border-gray-300",
+        "rounded-md"
+      );
     });
 
     it("shows error when trying to save empty content", async () => {
       const user = userEvent.setup();
       renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
 
-      await user.click(screen.getByText("Edit"));
+      await user.click(screen.getByRole("button", { name: "Edit" }));
       const textarea = screen.getByRole("textbox");
       await user.clear(textarea);
-      await user.click(screen.getByText("Save"));
+      await user.click(screen.getByRole("button", { name: "Save" }));
 
-      expect(screen.getByText("Content cannot be empty")).toBeDefined();
+      const errorMessage = screen.getByText("Content cannot be empty");
+      expect(errorMessage).toBeInTheDocument();
+      expect(errorMessage).toHaveClass("text-sm", "text-red-500");
     });
 
     it("shows error when content is unchanged", async () => {
       const user = userEvent.setup();
       renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
 
-      await user.click(screen.getByText("Edit"));
-      await user.click(screen.getByText("Save"));
+      await user.click(screen.getByRole("button", { name: "Edit" }));
+      await user.click(screen.getByRole("button", { name: "Save" }));
 
-      expect(
-        screen.getByText("No changes were made to the post content")
-      ).toBeDefined();
+      const errorMessage = screen.getByText(
+        "No changes were made to the post content"
+      );
+      expect(errorMessage).toBeInTheDocument();
+      expect(errorMessage).toHaveClass("text-sm", "text-red-500");
     });
 
     it("successfully saves edited content", async () => {
       const user = userEvent.setup();
       renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
 
-      await user.click(screen.getByText("Edit"));
+      await user.click(screen.getByRole("button", { name: "Edit" }));
       const textarea = screen.getByRole("textbox");
       await user.clear(textarea);
       await user.type(textarea, "Updated content");
@@ -154,7 +206,7 @@ describe("Post Component", () => {
         message: "Success",
       });
 
-      await user.click(screen.getByText("Save"));
+      await user.click(screen.getByRole("button", { name: "Save" }));
       expect(editPostApi).toHaveBeenCalledWith(1, "Updated content");
       expect(mockPostProps.onPostUpdate).toHaveBeenCalled();
     });
@@ -163,7 +215,7 @@ describe("Post Component", () => {
       const user = userEvent.setup();
       renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
 
-      await user.click(screen.getByText("Edit"));
+      await user.click(screen.getByRole("button", { name: "Edit" }));
       const textarea = screen.getByRole("textbox");
       await user.clear(textarea);
       await user.type(textarea, "Updated content");
@@ -173,21 +225,51 @@ describe("Post Component", () => {
         new Error(errorMessage)
       );
 
-      await user.click(screen.getByText("Save"));
-      expect(
-        screen.getByText(`Failed to update post: ${errorMessage}`)
-      ).toBeDefined();
+      await user.click(screen.getByRole("button", { name: "Save" }));
+      const error = screen.getByText(`Failed to update post: ${errorMessage}`);
+      expect(error).toBeInTheDocument();
+      expect(error).toHaveClass("text-sm", "text-red-500");
     });
 
     it("cancels edit mode correctly", async () => {
       const user = userEvent.setup();
       renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
 
-      await user.click(screen.getByText("Edit"));
-      await user.click(screen.getByText("Cancel"));
+      await user.click(screen.getByRole("button", { name: "Edit" }));
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
 
       expect(screen.queryByRole("textbox")).toBeNull();
-      expect(screen.getByText("Test post content")).toBeDefined();
+      expect(screen.getByText("Test post content")).toBeInTheDocument();
+    });
+
+    it("renders edit mode buttons with correct styling", async () => {
+      const user = userEvent.setup();
+      renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
+
+      await user.click(screen.getByRole("button", { name: "Edit" }));
+
+      const saveButton = screen.getByRole("button", { name: "Save" });
+      const cancelButton = screen.getByRole("button", { name: "Cancel" });
+
+      expect(saveButton).toHaveClass(
+        "px-3",
+        "py-1",
+        "text-sm",
+        "text-white",
+        "bg-blue-500",
+        "rounded",
+        "hover:bg-blue-600"
+      );
+      expect(cancelButton).toHaveClass(
+        "px-3",
+        "py-1",
+        "text-sm",
+        "text-gray-600",
+        "border",
+        "border-gray-300",
+        "rounded",
+        "hover:bg-gray-100"
+      );
     });
   });
 
@@ -200,7 +282,7 @@ describe("Post Component", () => {
         message: "Success",
       });
 
-      await user.click(screen.getByText("Delete"));
+      await user.click(screen.getByRole("button", { name: "Delete" }));
       expect(deletePostApi).toHaveBeenCalledWith(1);
       expect(mockPostProps.onPostUpdate).toHaveBeenCalled();
     });
@@ -214,10 +296,10 @@ describe("Post Component", () => {
         new Error(errorMessage)
       );
 
-      await user.click(screen.getByText("Delete"));
-      expect(
-        screen.getByText(`Failed to delete post: ${errorMessage}`)
-      ).toBeDefined();
+      await user.click(screen.getByRole("button", { name: "Delete" }));
+      const error = screen.getByText(`Failed to delete post: ${errorMessage}`);
+      expect(error).toBeInTheDocument();
+      expect(error).toHaveClass("text-sm", "text-red-500");
     });
   });
 });
