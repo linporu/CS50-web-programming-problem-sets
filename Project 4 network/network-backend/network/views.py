@@ -1,9 +1,8 @@
 import json
 from django.contrib.auth import authenticate, login, logout
 from django.db import IntegrityError, DatabaseError, transaction
-from django.http import HttpResponseRedirect, JsonResponse
+from django.http import JsonResponse
 from django.shortcuts import render
-from django.urls import reverse
 from django.core.exceptions import ValidationError
 from .models import User, Post, Following, Like, Comment
 from django.middleware.csrf import get_token
