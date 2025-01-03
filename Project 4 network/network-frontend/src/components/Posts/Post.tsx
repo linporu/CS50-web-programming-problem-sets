@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { editPostApi, deletePostApi } from "@/services/postService";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 interface PostProps {
   id: number;
@@ -101,7 +102,12 @@ export default function Post({
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           {/* 可以之後加入用戶頭像 */}
-          <span className="font-medium">{created_by}</span>
+          <Link
+            to={`/profile/${created_by}`}
+            className="font-medium hover:text-blue-500 hover:underline"
+          >
+            {created_by}
+          </Link>
           <span className="text-sm text-gray-500">
             {updated_at ? updated_at : created_at}
           </span>

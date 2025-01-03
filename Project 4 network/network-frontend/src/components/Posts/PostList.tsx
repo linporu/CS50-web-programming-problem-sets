@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import Post from "./Post";
 import { getPostApi, getFollowingPostApi } from "../../services/postService";
+import { getUserPostsApi } from "../../services/userService";
 import { CreatePost } from "./CreatePost";
 
 type Post = {
@@ -22,10 +23,11 @@ type Post = {
 };
 
 interface PostListProps {
-  mode?: "all" | "following";
+  mode?: "all" | "following" | "user";
+  username?: string;
 }
 
-export default function PostList({ mode = "all" }: PostListProps) {
+export default function PostList({ mode = "all", username }: PostListProps) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +35,17 @@ export default function PostList({ mode = "all" }: PostListProps) {
   const fetchPosts = useCallback(async () => {
     console.log(`Starting to fetch ${mode} posts...`);
     try {
-      const posts =
-        mode === "following" ? await getFollowingPostApi() : await getPostApi();
+      let posts;
+      if (mode === "following") {
+        posts = await getFollowingPostApi();
+      } else if (mode === "user") {
+        if (!username) {
+          throw new Error("Username is required for user mode");
+        }
+        posts = await getUserPostsApi(username);
+      } else {
+        posts = await getPostApi();
+      }
       console.log("Received posts:", posts);
       setPosts(posts);
     } catch (err) {
@@ -46,7 +57,7 @@ export default function PostList({ mode = "all" }: PostListProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [mode]);
+  }, [mode, username]);
 
   useEffect(() => {
     fetchPosts();

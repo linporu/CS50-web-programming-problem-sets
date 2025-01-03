@@ -5,6 +5,7 @@ import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import FollowingPage from "./pages/FollowingPage";
+import ProfilePage from "./pages/ProfilePage";
 import { useEffect } from "react";
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/following" element={<FollowingPage />} />
+            <Route path="/profile/:username" element={<ProfilePage />} />
           </Routes>
         </MainLayout>
       </Router>
