@@ -58,7 +58,7 @@ describe("FollowingPage", () => {
 
   it("renders heading with correct styling", async () => {
     await renderFollowingPage();
-    const heading = screen.getByRole("heading", { level: 1 });
+    const heading = screen.getByRole("heading", { level: 2 });
     expect(heading).toHaveClass("text-2xl", "font-bold", "mb-4");
   });
 });
