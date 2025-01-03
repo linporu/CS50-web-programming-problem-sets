@@ -175,6 +175,56 @@ describe("postService", () => {
       expect(response).toEqual(mockGetPostsResponse.posts);
     });
 
+    it("should handle array response format", async () => {
+      server.use(
+        http.get(`${API_BASE_URL}/api/posts`, () => {
+          return new HttpResponse(
+            JSON.stringify([
+              {
+                id: 1,
+                content: "Test post",
+                created_by: "testuser",
+                created_at: "2024-03-20T10:00:00Z",
+                updated_at: "2024-03-20T10:00:00Z",
+                is_deleted: false,
+                likes_count: 0,
+                comments_count: 0,
+                comments: [],
+              },
+            ]),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            }
+          );
+        })
+      );
+
+      const response = await getPostApi();
+      expect(Array.isArray(response)).toBe(true);
+      expect(response[0]).toHaveProperty("id", 1);
+    });
+
+    it("should throw error for invalid response format", async () => {
+      server.use(
+        http.get(`${API_BASE_URL}/api/posts`, () => {
+          return new HttpResponse(
+            JSON.stringify({ invalidKey: "invalid data" }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            }
+          );
+        })
+      );
+
+      await expect(getPostApi()).rejects.toThrow("Invalid response format");
+    });
+
     it("should throw error when API fails", async () => {
       server.use(
         http.get(`${API_BASE_URL}/api/posts`, () => {
@@ -255,6 +305,58 @@ describe("postService", () => {
     it("should successfully fetch following posts list", async () => {
       const response = await getFollowingPostApi();
       expect(response).toEqual(mockGetFollowingPostsResponse.posts);
+    });
+
+    it("should handle array response format", async () => {
+      server.use(
+        http.get(`${API_BASE_URL}/api/posts/following`, () => {
+          return new HttpResponse(
+            JSON.stringify([
+              {
+                id: 2,
+                content: "Following test post",
+                created_by: "followeduser",
+                created_at: "2024-03-20T10:00:00Z",
+                updated_at: "2024-03-20T10:00:00Z",
+                is_deleted: false,
+                likes_count: 0,
+                comments_count: 0,
+                comments: [],
+              },
+            ]),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            }
+          );
+        })
+      );
+
+      const response = await getFollowingPostApi();
+      expect(Array.isArray(response)).toBe(true);
+      expect(response[0]).toHaveProperty("id", 2);
+    });
+
+    it("should throw error for invalid response format", async () => {
+      server.use(
+        http.get(`${API_BASE_URL}/api/posts/following`, () => {
+          return new HttpResponse(
+            JSON.stringify({ invalidKey: "invalid data" }),
+            {
+              status: 200,
+              headers: {
+                "content-type": "application/json",
+              },
+            }
+          );
+        })
+      );
+
+      await expect(getFollowingPostApi()).rejects.toThrow(
+        "Invalid response format"
+      );
     });
 
     it("should throw error when API fails", async () => {
