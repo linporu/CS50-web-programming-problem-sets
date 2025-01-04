@@ -1,11 +1,13 @@
 import json
+
 from django.contrib.auth import authenticate, login, logout
-from django.db import IntegrityError, DatabaseError, transaction
-from django.http import JsonResponse
-from django.shortcuts import render
 from django.core.exceptions import ValidationError
-from .models import User, Post, Following, Like, Comment
+from django.db import DatabaseError, IntegrityError, transaction
+from django.http import JsonResponse
 from django.middleware.csrf import get_token
+from django.shortcuts import render
+
+from .models import Comment, Following, Like, Post, User
 
 
 def index(request):
@@ -21,9 +23,7 @@ def login_view(request):
 
             # Validate input
             if not username or not password:
-                return JsonResponse(
-                    {"error": "Username and password are required."}, status=400
-                )
+                return JsonResponse({"error": "Username and password are required."}, status=400)
 
             # Attempt to authenticate user
             user = authenticate(request, username=username, password=password)
@@ -45,9 +45,7 @@ def login_view(request):
                     status=200,
                 )
             else:
-                return JsonResponse(
-                    {"error": "Invalid username and/or password."}, status=401
-                )
+                return JsonResponse({"error": "Invalid username and/or password."}, status=401)
 
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON data."}, status=400)
@@ -169,9 +167,7 @@ def posts(request):
                 {"error": "Data integrity error, please check your input."}, status=400
             )
         except ValidationError as e:
-            return JsonResponse(
-                {"error": f'Validation error: {str(e).strip("[]\'")}'}, status=400
-            )
+            return JsonResponse({"error": f'Validation error: {str(e).strip("[]\'")}'}, status=400)
         except DatabaseError:
             return JsonResponse(
                 {"error": "Database operation error, please try again later."},
@@ -245,9 +241,7 @@ def post_detail(request, post_id):
 
         # Check if user is authenticated
         if not request.user.is_authenticated:
-            return JsonResponse(
-                {"error": "You must be logged in to edit posts."}, status=401
-            )
+            return JsonResponse({"error": "You must be logged in to edit posts."}, status=401)
 
         try:
             data = json.loads(request.body)
@@ -255,16 +249,12 @@ def post_detail(request, post_id):
 
             # Check if the logged-in user is the post author
             if post.created_by != request.user:
-                return JsonResponse(
-                    {"error": "You can only edit your own posts."}, status=403
-                )
+                return JsonResponse({"error": "You can only edit your own posts."}, status=403)
 
             # Validate content
             content = data.get("content", "").strip()
             if not content:
-                return JsonResponse(
-                    {"error": "Post content cannot be blank."}, status=400
-                )
+                return JsonResponse({"error": "Post content cannot be blank."}, status=400)
 
             # Save post content
             with transaction.atomic():
@@ -288,9 +278,7 @@ def post_detail(request, post_id):
                 {"error": "Data integrity error, please check your input."}, status=400
             )
         except ValidationError as e:
-            return JsonResponse(
-                {"error": f'Validation error: {str(e).strip("[]\'")}'}, status=400
-            )
+            return JsonResponse({"error": f'Validation error: {str(e).strip("[]\'")}'}, status=400)
         except DatabaseError:
             return JsonResponse(
                 {"error": "Database operation error, please try again later."},
@@ -304,18 +292,14 @@ def post_detail(request, post_id):
 
         # Check if user is authenticated
         if not request.user.is_authenticated:
-            return JsonResponse(
-                {"error": "You must be logged in to delete posts."}, status=401
-            )
+            return JsonResponse({"error": "You must be logged in to delete posts."}, status=401)
 
         try:
             post = Post.objects.get(pk=post_id)
 
             # Check if the logged-in user is the post author
             if post.created_by != request.user:
-                return JsonResponse(
-                    {"error": "You can only delete your own posts."}, status=403
-                )
+                return JsonResponse({"error": "You can only delete your own posts."}, status=403)
 
             # Save post deletion state
             with transaction.atomic():
@@ -342,18 +326,14 @@ def post_detail(request, post_id):
 
     # Not GET, PATCH or DELETE request
     else:
-        return JsonResponse(
-            {"error": "Only accept GET, PATCH and DELETE methods."}, status=400
-        )
+        return JsonResponse({"error": "Only accept GET, PATCH and DELETE methods."}, status=400)
 
 
 def like(request, post_id):
 
     # Check if user is authenticated for both POST and DELETE
     if not request.user.is_authenticated:
-        return JsonResponse(
-            {"error": "You must be logged in to like posts."}, status=401
-        )
+        return JsonResponse({"error": "You must be logged in to like posts."}, status=401)
 
     # Check if post exists
     try:
@@ -365,9 +345,7 @@ def like(request, post_id):
     if request.method == "POST":
         # Check if already liked
         if Like.objects.filter(user=request.user, post=post).exists():
-            return JsonResponse(
-                {"error": "You have already liked this post."}, status=400
-            )
+            return JsonResponse({"error": "You have already liked this post."}, status=400)
 
         # Create new like
         try:
@@ -379,9 +357,7 @@ def like(request, post_id):
                 {"error": "Data integrity error, please check your input."}, status=400
             )
         except ValidationError as e:
-            return JsonResponse(
-                {"error": f'Validation error: {str(e).strip("[]\'")}'}, status=400
-            )
+            return JsonResponse({"error": f'Validation error: {str(e).strip("[]\'")}'}, status=400)
         except DatabaseError:
             return JsonResponse(
                 {"error": "Database operation error, please try again later."},
@@ -415,6 +391,12 @@ def user_detail(request, username):
     if request.method == "GET":
         try:
             user = User.objects.get(username=username)
+            is_following = False
+
+            if request.user.is_authenticated:
+                is_following = Following.objects.filter(
+                    follower=request.user, following=user
+                ).exists()
 
             posts = (
                 Post.objects.filter(created_by=user, is_deleted=False)
@@ -431,6 +413,7 @@ def user_detail(request, username):
                         "email": user.email,
                         "following_count": user.following_count,
                         "follower_count": user.follower_count,
+                        "is_following": is_following,
                     },
                     "posts": [post.serialize() for post in posts] if posts else None,
                 },
@@ -455,9 +438,7 @@ def follow(request, username):
     # Check if user is authenticated
     if not user.is_authenticated:
         return JsonResponse(
-            {
-                "error": "You must be logged in to view following posts, follow/unfollow users."
-            },
+            {"error": "You must be logged in to view following posts, follow/unfollow users."},
             status=401,
         )
 
@@ -469,18 +450,14 @@ def follow(request, username):
 
     # Check if user and target user are the same one
     if user == target_user:
-        return JsonResponse(
-            {"error": "You can not follow/unfollow yourself."}, status=403
-        )
+        return JsonResponse({"error": "You can not follow/unfollow yourself."}, status=403)
 
     # Follow target user
     if request.method == "POST":
 
         # Check if already following
         if Following.objects.filter(follower=user, following=target_user).exists():
-            return JsonResponse(
-                {"error": "You are already following this user."}, status=400
-            )
+            return JsonResponse({"error": "You are already following this user."}, status=400)
 
         try:
             with transaction.atomic():
@@ -502,9 +479,7 @@ def follow(request, username):
                 {"error": "Data integrity error, please check your input."}, status=400
             )
         except ValidationError as e:
-            return JsonResponse(
-                {"error": f'Validation error: {str(e).strip("[]\'")}'}, status=400
-            )
+            return JsonResponse({"error": f'Validation error: {str(e).strip("[]\'")}'}, status=400)
         except DatabaseError:
             return JsonResponse(
                 {"error": "Database operation error, please try again later."},
@@ -517,14 +492,10 @@ def follow(request, username):
     elif request.method == "DELETE":
         try:
             with transaction.atomic():
-                following = Following.objects.filter(
-                    follower=user, following=target_user
-                )
+                following = Following.objects.filter(follower=user, following=target_user)
 
                 if not following.exists():
-                    return JsonResponse(
-                        {"error": "You are not following this user."}, status=400
-                    )
+                    return JsonResponse({"error": "You are not following this user."}, status=400)
 
                 following.delete()
 
@@ -549,9 +520,7 @@ def follow(request, username):
 
     # Not POST or DELETE method
     else:
-        return JsonResponse(
-            {"error": "Only accept POST and DELETE method."}, status=400
-        )
+        return JsonResponse({"error": "Only accept POST and DELETE method."}, status=400)
 
 
 def posts_following(request):
@@ -560,9 +529,7 @@ def posts_following(request):
     # Check if user is authenticated
     if not user.is_authenticated:
         return JsonResponse(
-            {
-                "error": "You must be logged in to view following posts, follow/unfollow users."
-            },
+            {"error": "You must be logged in to view following posts, follow/unfollow users."},
             status=401,
         )
 
@@ -630,9 +597,7 @@ def comments(request, post_id):
 
         # Check if content exist
         if not data.get("content"):
-            return JsonResponse(
-                {"error": "Comment content can not be empty."}, status=400
-            )
+            return JsonResponse({"error": "Comment content can not be empty."}, status=400)
 
         # Create new comment
         try:
@@ -653,9 +618,7 @@ def comments(request, post_id):
                 {"error": "Data integrity error, please check your input."}, status=400
             )
         except ValidationError as e:
-            return JsonResponse(
-                {"error": f'Validation error: {str(e).strip("[]\'")}'}, status=400
-            )
+            return JsonResponse({"error": f'Validation error: {str(e).strip("[]\'")}'}, status=400)
         except DatabaseError:
             return JsonResponse(
                 {"error": "Database operation error, please try again later."},
@@ -678,16 +641,12 @@ def comment_detail(request, comment_id):
 
             # Check if the logged-in user is the comment author
             if comment.created_by != request.user:
-                return JsonResponse(
-                    {"error": "You can only edit your own comments."}, status=403
-                )
+                return JsonResponse({"error": "You can only edit your own comments."}, status=403)
 
             # Validate content
             content = data.get("content", "").strip()
             if not content:
-                return JsonResponse(
-                    {"error": "Comment content can not be blank."}, status=400
-                )
+                return JsonResponse({"error": "Comment content can not be blank."}, status=400)
 
             # Save comment content
             with transaction.atomic():
@@ -711,9 +670,7 @@ def comment_detail(request, comment_id):
                 {"error": "Data integrity error, please check your input."}, status=400
             )
         except ValidationError as e:
-            return JsonResponse(
-                {"error": f'Validation error: {str(e).strip("[]\'")}'}, status=400
-            )
+            return JsonResponse({"error": f'Validation error: {str(e).strip("[]\'")}'}, status=400)
         except DatabaseError:
             return JsonResponse(
                 {"error": "Database operation error, please try again later."},
@@ -730,9 +687,7 @@ def comment_detail(request, comment_id):
 
             # Check if the logged-in user is the comment author
             if comment.created_by != request.user:
-                return JsonResponse(
-                    {"error": "You can only delete your own comments."}, status=403
-                )
+                return JsonResponse({"error": "You can only delete your own comments."}, status=403)
 
             # Save comment deletion state
             with transaction.atomic():
@@ -759,6 +714,4 @@ def comment_detail(request, comment_id):
 
     # Not PATCH or DELETE request
     else:
-        return JsonResponse(
-            {"error": "Only accept PATCH and DELETE methods."}, status=400
-        )
+        return JsonResponse({"error": "Only accept PATCH and DELETE methods."}, status=400)

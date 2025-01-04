@@ -262,9 +262,7 @@ class ModelTests(TestCase):
 
     def test_follow_user(self):
         """Test follow functionality"""
-        Following.objects.create(
-            follower=self.user1, following=self.user2  # user1 follows user2
-        )
+        Following.objects.create(follower=self.user1, following=self.user2)  # user1 follows user2
 
         # Verify follow relationship is created
         self.assertTrue(
@@ -533,9 +531,7 @@ class ModelTests(TestCase):
     def test_post_serialize_with_deleted_comments(self):
         """Test serialization with soft-deleted comments"""
         # Create active comment
-        Comment.objects.create(
-            post=self.post, content="Active comment", created_by=self.user2
-        )
+        Comment.objects.create(post=self.post, content="Active comment", created_by=self.user2)
         # Create deleted comment
         Comment.objects.create(
             post=self.post,
@@ -1217,48 +1213,64 @@ class UserDetailViewTests(TestCase):
         self.user = User.objects.create_user(
             username="testuser", password="testpass123", email="test@example.com"
         )
+        self.other_user = User.objects.create_user(username="otheruser", password="testpass123")
+        self.follower_user = User.objects.create_user(
+            username="followeruser", password="testpass123"
+        )
 
         # Create test posts
         self.active_post = Post.objects.create(content="Active post", created_by=self.user)
-
         self.deleted_post = Post.objects.create(
             content="Deleted post", created_by=self.user, is_deleted=True
         )
 
-        # Create another user for testing follow functionality
-        self.other_user = User.objects.create_user(username="otheruser", password="testpass123")
-
-        # Create follow relationship (other_user follows self.user)
-        Following.objects.create(follower=self.other_user, following=self.user)
+        # Create follow relationship (follower_user follows user)
+        Following.objects.create(follower=self.follower_user, following=self.user)
 
         self.client = Client()
 
-    def test_get_user_detail_success(self):
-        """Test successful retrieval of user details"""
-        # Note: Following relationship is already created in setUp()
-        # No need to create another one
+    def test_get_user_detail_with_authenticated_follower(self):
+        """Test user detail retrieval when viewer is a follower"""
+        self.client.login(username="followeruser", password="testpass123")
 
         response = self.client.get(reverse("user_detail", kwargs={"username": self.user.username}))
 
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
-
-        # Verify response format and message
-        self.assertEqual(data["message"], "Get user detail successfully.")
-        self.assertIn("user", data)
-        self.assertIn("posts", data)
-
-        # Verify user data
         user_data = data["user"]
+
+        # Verify is_following field
+        self.assertTrue(user_data["is_following"])
+
+        # Verify other user data
         self.assertEqual(user_data["username"], self.user.username)
         self.assertEqual(user_data["email"], self.user.email)
-        self.assertEqual(user_data["following_count"], 0)  # user has 0 followings
-        self.assertEqual(user_data["follower_count"], 1)  # user has 1 follower (other_user)
+        self.assertEqual(user_data["following_count"], 0)
+        self.assertEqual(user_data["follower_count"], 1)
 
-        # Verify posts data
-        posts = data["posts"]
-        self.assertEqual(len(posts), 1)  # Only active posts
-        self.assertEqual(posts[0]["content"], "Active post")
+    def test_get_user_detail_with_authenticated_non_follower(self):
+        """Test user detail retrieval when viewer is not a follower"""
+        self.client.login(username="otheruser", password="testpass123")
+
+        response = self.client.get(reverse("user_detail", kwargs={"username": self.user.username}))
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        user_data = data["user"]
+
+        # Verify is_following field
+        self.assertFalse(user_data["is_following"])
+
+    def test_get_user_detail_with_unauthenticated_user(self):
+        """Test user detail retrieval when viewer is not authenticated"""
+        response = self.client.get(reverse("user_detail", kwargs={"username": self.user.username}))
+
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        user_data = data["user"]
+
+        # Verify is_following field
+        self.assertFalse(user_data["is_following"])
 
     def test_get_user_detail_no_posts(self):
         """Test user detail retrieval for user with no posts"""
