@@ -1,28 +1,31 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import PostList from "../components/Posts/PostList";
 import { getUserProfileApi, UserProfile } from "../services/userService";
+import FollowButton from "../components/Buttons/FollowButton";
 
 export default function ProfilePage() {
   const { username } = useParams<{ username: string }>();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
+
+  const fetchProfile = useCallback(async () => {
+    if (!username) return;
+    try {
+      const data = await getUserProfileApi(username);
+      setProfile(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [username]);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      if (!username) return;
-      try {
-        const data = await getUserProfileApi(username);
-        setProfile(data);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchProfile();
-  }, [username]);
+  }, [fetchProfile, username]);
 
   if (!username || isLoading) return null;
 
@@ -34,6 +37,9 @@ export default function ProfilePage() {
           <span className="mr-4">Followers: {profile?.follower_count}</span>
           <span>Following: {profile?.following_count}</span>
         </div>
+        {profile && user && user.username !== profile.username && (
+          <FollowButton targetUser={profile} onFollowingUpdate={fetchProfile} />
+        )}
       </div>
       <PostList mode="user" username={username} />
     </div>

@@ -8,6 +8,7 @@ interface UserApiResponse {
     email: string;
     following_count: number;
     follower_count: number;
+    is_following: boolean;
   };
   posts: GetPostResponse[] | null;
 }
@@ -17,6 +18,7 @@ export interface UserProfile {
   email: string;
   following_count: number;
   follower_count: number;
+  is_following: boolean;
 }
 
 // Get complete user data
@@ -44,4 +46,30 @@ export const getUserPostsApi = async (
 ): Promise<GetPostResponse[]> => {
   const response = await getUserDetailApi(username);
   return response.posts || [];
+};
+
+interface FollowApiResponse {
+  message: string;
+  data: {
+    following_count: number;
+    follower_count: number;
+  };
+}
+
+export const followUserApi = async (
+    username: string
+): Promise<FollowApiResponse> => {
+    const response = (await fetchWithConfig(`/api/users/${username}/follow`, {
+      method: "POST",
+    })) as FollowApiResponse;
+    return response;
+}
+
+export const unfollowUserApi = async (
+  username: string
+): Promise<FollowApiResponse> => {
+  const response = (await fetchWithConfig(`/api/users/${username}/follow`, {
+    method: "DELETE",
+  })) as FollowApiResponse;
+  return response;
 };
