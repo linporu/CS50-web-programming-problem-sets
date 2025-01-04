@@ -3,6 +3,8 @@ import {
   getUserDetailApi,
   getUserProfileApi,
   getUserPostsApi,
+  followUserApi,
+  unfollowUserApi,
 } from "./userService";
 import * as api from "./api";
 
@@ -20,6 +22,7 @@ describe("userService", () => {
       email: "test@example.com",
       following_count: 10,
       follower_count: 20,
+      is_following: false,
     },
     posts: [
       {
@@ -31,6 +34,14 @@ describe("userService", () => {
         liked_by_user: false,
       },
     ],
+  };
+
+  const mockFollowResponse = {
+    message: "Success",
+    data: {
+      following_count: 11,
+      follower_count: 21,
+    },
   };
 
   beforeEach(() => {
@@ -136,6 +147,62 @@ describe("userService", () => {
 
       // Act & Assert
       await expect(getUserPostsApi(mockUsername)).rejects.toThrow(errorMessage);
+    });
+  });
+
+  describe("followUserApi", () => {
+    it("should follow user successfully", async () => {
+      // Arrange
+      vi.mocked(api.fetchWithConfig).mockResolvedValueOnce(mockFollowResponse);
+
+      // Act
+      const result = await followUserApi(mockUsername);
+
+      // Assert
+      expect(api.fetchWithConfig).toHaveBeenCalledWith(
+        `/api/users/${mockUsername}/follow`,
+        { method: "POST" }
+      );
+      expect(result).toEqual(mockFollowResponse);
+    });
+
+    it("should handle API error when following user", async () => {
+      // Arrange
+      const errorMessage = "Failed to follow user";
+      vi.mocked(api.fetchWithConfig).mockRejectedValueOnce(
+        new Error(errorMessage)
+      );
+
+      // Act & Assert
+      await expect(followUserApi(mockUsername)).rejects.toThrow(errorMessage);
+    });
+  });
+
+  describe("unfollowUserApi", () => {
+    it("should unfollow user successfully", async () => {
+      // Arrange
+      vi.mocked(api.fetchWithConfig).mockResolvedValueOnce(mockFollowResponse);
+
+      // Act
+      const result = await unfollowUserApi(mockUsername);
+
+      // Assert
+      expect(api.fetchWithConfig).toHaveBeenCalledWith(
+        `/api/users/${mockUsername}/follow`,
+        { method: "DELETE" }
+      );
+      expect(result).toEqual(mockFollowResponse);
+    });
+
+    it("should handle API error when unfollowing user", async () => {
+      // Arrange
+      const errorMessage = "Failed to unfollow user";
+      vi.mocked(api.fetchWithConfig).mockRejectedValueOnce(
+        new Error(errorMessage)
+      );
+
+      // Act & Assert
+      await expect(unfollowUserApi(mockUsername)).rejects.toThrow(errorMessage);
     });
   });
 });
