@@ -16,24 +16,15 @@ export default function FollowButton({
   const [isLoading, setIsLoading] = useState(false);
   const username = targetUser.username;
 
-  const handleFollow = async () => {
+  const handleFollowToggle = async () => {
     setIsLoading(true);
     try {
-      await followUserApi(username);
-      setIsFollowing(true);
-      onFollowingUpdate();
-    } catch (error) {
-      console.error("Follow action failed:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleUnfollow = async () => {
-    setIsLoading(true);
-    try {
-      await unfollowUserApi(username);
-      setIsFollowing(false);
+      if (isFollowing) {
+        await unfollowUserApi(username);
+      } else {
+        await followUserApi(username);
+      }
+      setIsFollowing(!isFollowing);
       onFollowingUpdate();
     } catch (error) {
       console.error("Follow action failed:", error);
@@ -44,7 +35,7 @@ export default function FollowButton({
 
   return (
     <button
-      onClick={() => (isFollowing ? handleUnfollow() : handleFollow())}
+      onClick={handleFollowToggle}
       disabled={isLoading}
       className={`px-4 py-2 rounded ${
         isFollowing
