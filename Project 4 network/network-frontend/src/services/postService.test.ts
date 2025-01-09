@@ -10,7 +10,7 @@ import {
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import {
-  getPostApi,
+  getAllPostsApi,
   createPostApi,
   editPostApi,
   getFollowingPostApi,
@@ -169,9 +169,9 @@ afterAll(() => {
 });
 
 describe("postService", () => {
-  describe("getPostApi", () => {
+  describe("getAllPostsApi", () => {
     it("should successfully fetch posts list", async () => {
-      const response = await getPostApi();
+      const response = await getAllPostsApi();
       expect(response).toEqual(mockGetPostsResponse.posts);
     });
 
@@ -202,7 +202,7 @@ describe("postService", () => {
         })
       );
 
-      const response = await getPostApi();
+      const response = await getAllPostsApi();
       expect(Array.isArray(response)).toBe(true);
       expect(response[0]).toHaveProperty("id", 1);
     });
@@ -222,7 +222,7 @@ describe("postService", () => {
         })
       );
 
-      await expect(getPostApi()).rejects.toThrow("Invalid response format");
+      await expect(getAllPostsApi()).rejects.toThrow("Invalid response format");
     });
 
     it("should throw error when API fails", async () => {
@@ -240,7 +240,7 @@ describe("postService", () => {
         })
       );
 
-      await expect(getPostApi()).rejects.toThrow("Internal Server Error");
+      await expect(getAllPostsApi()).rejects.toThrow("Internal Server Error");
     });
   });
 
