@@ -53,15 +53,15 @@ class Post(models.Model):
         cache_age = timezone.now() - self._cache_timestamp
         return cache_age.total_seconds() < self.CACHE_TIMEOUT
 
-    def serialize(self, force_refresh=False):
+    def serialize(self, user=None, force_refresh=False):
         """
         Serialize Post data with cache timeout
+        :param user: Current user instance
         :param force_refresh: Whether to force refresh the cache
         """
         # If force refresh or cache doesn't exist or cache expired
         if force_refresh or self._cached_serialized_data is None or not self.is_cache_valid():
-
-            self._cached_serialized_data = {
+            serialized_data = {
                 "id": self.id,
                 "content": self.content,
                 "created_by": self.created_by.username,
@@ -72,6 +72,14 @@ class Post(models.Model):
                 "comments": [comment.serialize() for comment in self.comments.all()],
                 "comments_count": self.comments_count,
             }
+
+            # Add is_liked field if user is authenticated
+            if user and user.is_authenticated:
+                serialized_data["is_liked"] = self.likes.filter(user=user).exists()
+            else:
+                serialized_data["is_liked"] = False
+
+            self._cached_serialized_data = serialized_data
             self._cache_timestamp = timezone.now()
 
         return self._cached_serialized_data

@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
 import Post from "./Post";
-import { getPostApi, getFollowingPostApi } from "../../services/postService";
+import {
+  getFollowingPostApi,
+  getAllPostsApi,
+} from "../../services/postService";
 import { getUserPostsApi } from "../../services/userService";
 import { CreatePost } from "./CreatePost";
 
@@ -13,6 +16,7 @@ type Post = {
   is_deleted: boolean;
   likes_count: number;
   comments_count: number;
+  is_liked: boolean;
   comments: {
     id: number;
     content: string;
@@ -44,7 +48,7 @@ export default function PostList({ mode = "all", username }: PostListProps) {
         }
         posts = await getUserPostsApi(username);
       } else {
-        posts = await getPostApi();
+        posts = await getAllPostsApi();
       }
       console.log("Received posts:", posts);
       setPosts(posts);
@@ -79,7 +83,12 @@ export default function PostList({ mode = "all", username }: PostListProps) {
     <div className="space-y-4">
       {mode === "all" && <CreatePost onPostCreated={() => fetchPosts()} />}
       {posts.map((post) => (
-        <Post key={post.id} {...post} onPostUpdate={fetchPosts} />
+        <Post
+          key={post.id}
+          {...post}
+          is_liked={post.is_liked || false}
+          onPostUpdate={fetchPosts}
+        />
       ))}
     </div>
   );

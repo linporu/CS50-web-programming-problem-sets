@@ -189,7 +189,7 @@ def posts(request):
             return JsonResponse(
                 {
                     "message": "Get posts successfully.",
-                    "posts": [post.serialize() for post in posts],
+                    "posts": [post.serialize(user=request.user) for post in posts],
                 },
                 status=200,
             )
@@ -214,7 +214,11 @@ def post_detail(request, post_id):
     # Get post detail
     if request.method == "GET":
         try:
-            post = Post.objects.select_related("created_by").get(pk=post_id)
+            post = (
+                Post.objects.select_related("created_by")
+                .prefetch_related("likes", "comments")
+                .get(pk=post_id)
+            )
 
             if post.is_deleted:
                 return JsonResponse(
@@ -222,7 +226,7 @@ def post_detail(request, post_id):
                 )
 
             return JsonResponse(
-                {"message": "Get post successfully.", "post": post.serialize()},
+                {"message": "Get post successfully.", "post": post.serialize(user=request.user)},
                 status=200,
             )
 

@@ -1,11 +1,19 @@
 import { fetchWithConfig } from "./api";
 
-interface PostApiResponse {
+// API Response Types
+interface SuccessResponse {
   message: string;
-  posts: GetPostResponse[];
 }
 
-export interface GetPostResponse {
+interface ErrorResponse {
+  error: string;
+}
+
+// Discriminated union type for API responses
+type ApiResponse<T> = (T & SuccessResponse) | ErrorResponse;
+
+// Post related data structures
+interface Post {
   id: number;
   content: string;
   created_by: string;
@@ -14,6 +22,7 @@ export interface GetPostResponse {
   is_deleted: boolean;
   likes_count: number;
   comments_count: number;
+  is_liked: boolean;
   comments: {
     id: number;
     content: string;
@@ -23,115 +32,114 @@ export interface GetPostResponse {
   }[];
 }
 
-export const getPostApi = async (): Promise<GetPostResponse[]> => {
+interface PostList {
+  posts: Post[];
+}
+
+// Shared error handling function
+const handleApiResponse = <T>(response: ApiResponse<T>): T => {
+  if ("error" in response) {
+    throw new Error(response.error);
+  }
+  return response;
+};
+
+// Shared function to handle posts array response
+const handlePostsResponse = (response: unknown): Post[] => {
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  if (response && typeof response === "object" && "posts" in response) {
+    return (response as PostList).posts;
+  }
+
+  throw new Error("Invalid response format");
+};
+
+export const getAllPostsApi = async (): Promise<Post[]> => {
   const response = await fetchWithConfig("/api/posts", {
     method: "GET",
   });
-
-  // Handle both array and object response formats
-  if (Array.isArray(response)) {
-    return response;
-  }
-
-  // Handle the case where response is an object with posts property
-  if (response && "posts" in response) {
-    return (response as PostApiResponse).posts;
-  }
-
-  throw new Error("Invalid response format");
+  return handlePostsResponse(response);
 };
 
-export const getFollowingPostApi = async (): Promise<GetPostResponse[]> => {
+export const getPostApi = async (post_id: number): Promise<Post> => {
+  const response = (await fetchWithConfig(`/api/posts/${post_id}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  })) as ApiResponse<Post>;
+  return handleApiResponse(response);
+};
+
+export const getFollowingPostApi = async (): Promise<Post[]> => {
   const response = await fetchWithConfig("/api/posts/following", {
     method: "GET",
   });
-
-  // Handle both array and object response formats
-  if (Array.isArray(response)) {
-    return response;
-  }
-
-  // Handle the case where response is an object with posts property
-  if (response && "posts" in response) {
-    return (response as PostApiResponse).posts;
-  }
-
-  throw new Error("Invalid response format");
+  return handlePostsResponse(response);
 };
-
-interface CreatePostResponse {
-  message: string;
-  error?: string;
-}
 
 export const createPostApi = async (
   content: string
-): Promise<CreatePostResponse> => {
-  const requestBody = {
-    content: content,
-  };
-
+): Promise<SuccessResponse> => {
   const response = (await fetchWithConfig("/api/posts", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(requestBody),
-  })) as CreatePostResponse;
-
-  if (response.error) {
-    throw new Error(response.error);
-  }
-
-  return response;
+    body: JSON.stringify({ content }),
+  })) as ApiResponse<SuccessResponse>;
+  return handleApiResponse(response);
 };
-
-interface EditPostResponse {
-  message: string;
-  error?: string;
-}
 
 export const editPostApi = async (
   post_id: number,
   content: string
-): Promise<EditPostResponse> => {
-  const requestBody = {
-    content: content,
-  };
-
+): Promise<SuccessResponse> => {
   const response = (await fetchWithConfig(`/api/posts/${post_id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(requestBody),
-  })) as EditPostResponse;
-
-  if (response.error) {
-    throw new Error(response.error);
-  }
-
-  return response;
+    body: JSON.stringify({ content }),
+  })) as ApiResponse<SuccessResponse>;
+  return handleApiResponse(response);
 };
-
-interface DeletePostResponse {
-  message: string;
-  error?: string;
-}
 
 export const deletePostApi = async (
   post_id: number
-): Promise<DeletePostResponse> => {
+): Promise<SuccessResponse> => {
   const response = (await fetchWithConfig(`/api/posts/${post_id}`, {
     method: "DELETE",
     headers: {
       "Content-Type": "application/json",
     },
-  })) as DeletePostResponse;
+  })) as ApiResponse<SuccessResponse>;
+  return handleApiResponse(response);
+};
 
-  if (response.error) {
-    throw new Error(response.error);
-  }
+export const likePostApi = async (
+  post_id: number
+): Promise<SuccessResponse> => {
+  const response = (await fetchWithConfig(`/api/posts/${post_id}/like`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  })) as ApiResponse<SuccessResponse>;
+  return handleApiResponse(response);
+};
 
-  return response;
+export const unLikePostApi = async (
+  post_id: number
+): Promise<SuccessResponse> => {
+  const response = (await fetchWithConfig(`/api/posts/${post_id}/like`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  })) as ApiResponse<SuccessResponse>;
+  return handleApiResponse(response);
 };

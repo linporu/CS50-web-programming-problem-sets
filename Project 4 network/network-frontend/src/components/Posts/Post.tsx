@@ -1,7 +1,8 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { editPostApi, deletePostApi } from "@/services/postService";
+import { editPostApi, deletePostApi, getPostApi } from "@/services/postService";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import LikeButton from "../Buttons/LikeButton";
 
 interface PostProps {
   id: number;
@@ -20,6 +21,7 @@ interface PostProps {
     is_deleted: boolean;
   }[];
   onPostUpdate?: () => void;
+  is_liked: boolean;
 }
 
 export default function Post({
@@ -38,6 +40,8 @@ export default function Post({
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const isPostCreator = user?.username === created_by;
+  const [currentLikesCount, setCurrentLikesCount] = useState(likes_count);
+  const [isLiked, setIsLiked] = useState(false);
 
   // Handle edit mode
   const handleEditClick = () => {
@@ -60,7 +64,7 @@ export default function Post({
     try {
       await editPostApi(id, editContent);
       setError(null);
-      onPostUpdate?.();
+      await updatePost(id);
     } catch (error) {
       console.error("Failed to update post:", error);
       setError(
@@ -94,6 +98,17 @@ export default function Post({
       );
     }
     return;
+  };
+
+  const updatePost = async (postId: number) => {
+    try {
+      const updatedPost = await getPostApi(postId);
+      setCurrentLikesCount(updatedPost.likes_count);
+      setIsLiked(updatedPost.is_liked);
+      onPostUpdate?.();
+    } catch (error) {
+      console.error("Failed to fetch updated post:", error);
+    }
   };
 
   return (
@@ -161,12 +176,16 @@ export default function Post({
 
       {/* Post Footer */}
       <div className="flex items-center gap-4 text-sm text-gray-600">
-        <button className="flex items-center gap-1 hover:text-blue-500">
-          <span>Like</span>
-          <span>{likes_count}</span>
-        </button>
+        <LikeButton
+          postId={id}
+          initialIsLiked={isLiked}
+          likesCount={currentLikesCount}
+          onLikeUpdate={() => {
+            updatePost(id);
+          }}
+        />
 
-        <button className="flex items-center gap-1 hover:text-blue-500">
+        <button className="flex items-center gap-1 text-gray-600 hover:text-blue-500">
           <span>Comment</span>
           <span>{comments_count}</span>
         </button>

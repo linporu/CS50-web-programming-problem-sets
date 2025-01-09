@@ -1,15 +1,32 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BrowserRouter } from "react-router-dom";
 import Post from "./Post";
 import { AuthContext } from "@/contexts/AuthContext";
-import { editPostApi, deletePostApi } from "@/services/postService";
+import { editPostApi, deletePostApi, getPostApi } from "@/services/postService";
+import LikeButton from "../Buttons/LikeButton";
 
 // Mock the post service
 vi.mock("@/services/postService", () => ({
   editPostApi: vi.fn(),
   deletePostApi: vi.fn(),
+  getPostApi: vi.fn(),
+}));
+
+// Mock the LikeButton component
+vi.mock("../Buttons/LikeButton", () => ({
+  default: vi.fn(({ likesCount, onLikeUpdate }) => (
+    <button
+      onClick={() => {
+        onLikeUpdate();
+      }}
+      data-testid="like-button"
+      className="flex items-center gap-1 text-gray-600 hover:text-blue-500"
+    >
+      {likesCount} Like{likesCount !== 1 ? "s" : ""}
+    </button>
+  )),
 }));
 
 describe("Post Component", () => {
@@ -32,6 +49,7 @@ describe("Post Component", () => {
       },
     ],
     onPostUpdate: vi.fn(),
+    is_liked: false,
   };
 
   const renderWithAuth = (
@@ -106,11 +124,23 @@ describe("Post Component", () => {
 
     it("renders like and comment buttons with correct styling", () => {
       renderWithAuth(<Post {...mockPostProps} />);
-      const likeButton = screen.getByRole("button", { name: /like/i });
+      const likeButton = screen.getByTestId("like-button");
       const commentButton = screen.getByRole("button", { name: /comment/i });
 
-      expect(likeButton).toHaveClass("hover:text-blue-500");
-      expect(commentButton).toHaveClass("hover:text-blue-500");
+      expect(likeButton).toHaveClass(
+        "flex",
+        "items-center",
+        "gap-1",
+        "text-gray-600",
+        "hover:text-blue-500"
+      );
+      expect(commentButton).toHaveClass(
+        "flex",
+        "items-center",
+        "gap-1",
+        "text-gray-600",
+        "hover:text-blue-500"
+      );
     });
   });
 
@@ -195,20 +225,41 @@ describe("Post Component", () => {
 
     it("successfully saves edited content", async () => {
       const user = userEvent.setup();
+      const updatedPost = {
+        ...mockPostProps,
+        content: "Updated content",
+        likes_count: 7,
+        is_liked: true,
+      };
+
+      (editPostApi as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        message: "Success",
+      });
+      (getPostApi as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        updatedPost
+      );
+
       renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
 
+      // Edit the post
       await user.click(screen.getByRole("button", { name: "Edit" }));
       const textarea = screen.getByRole("textbox");
       await user.clear(textarea);
       await user.type(textarea, "Updated content");
 
-      (editPostApi as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-        message: "Success",
+      // Click save and wait for all promises to resolve
+      const saveButton = screen.getByRole("button", { name: "Save" });
+      await user.click(saveButton);
+
+      // Wait for all promises to resolve
+      await vi.waitFor(() => {
+        expect(editPostApi).toHaveBeenCalledWith(1, "Updated content");
+        expect(getPostApi).toHaveBeenCalledWith(1);
+        expect(mockPostProps.onPostUpdate).toHaveBeenCalled();
       });
 
-      await user.click(screen.getByRole("button", { name: "Save" }));
-      expect(editPostApi).toHaveBeenCalledWith(1, "Updated content");
-      expect(mockPostProps.onPostUpdate).toHaveBeenCalled();
+      // Verify the edit mode is exited
+      expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     });
 
     it("handles edit API error correctly", async () => {
@@ -300,6 +351,137 @@ describe("Post Component", () => {
       const error = screen.getByText(`Failed to delete post: ${errorMessage}`);
       expect(error).toBeInTheDocument();
       expect(error).toHaveClass("text-sm", "text-red-500");
+    });
+  });
+
+  describe("Like Functionality", () => {
+    beforeEach(() => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      (LikeButton as ReturnType<typeof vi.fn>).mockImplementation(
+        ({ likesCount, onLikeUpdate }) => (
+          <button
+            onClick={() => {
+              onLikeUpdate();
+            }}
+            data-testid="like-button"
+            className="flex items-center gap-1 text-gray-600 hover:text-blue-500"
+          >
+            {likesCount} Like{likesCount !== 1 ? "s" : ""}
+          </button>
+        )
+      );
+    });
+
+    afterEach(() => {
+      (console.error as ReturnType<typeof vi.fn>).mockRestore();
+    });
+
+    it("initializes with correct likes count and liked state", () => {
+      const customProps = {
+        ...mockPostProps,
+        likes_count: 10,
+        is_liked: true,
+      };
+      renderWithAuth(<Post {...customProps} />);
+
+      const likeButton = screen.getByTestId("like-button");
+      expect(likeButton).toHaveTextContent("10");
+    });
+
+    it("updates likes count and liked state when post is updated", async () => {
+      const user = userEvent.setup();
+      const updatedPost = {
+        ...mockPostProps,
+        likes_count: 6,
+        is_liked: true,
+      };
+
+      (getPostApi as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        updatedPost
+      );
+
+      renderWithAuth(<Post {...mockPostProps} />);
+
+      // Simulate post update (e.g., after like button click)
+      const likeButton = screen.getByTestId("like-button");
+      await user.click(likeButton);
+
+      // Wait for all promises to resolve
+      await vi.waitFor(() => {
+        expect(getPostApi).toHaveBeenCalledWith(mockPostProps.id);
+      });
+
+      // Verify that onPostUpdate was called
+      expect(mockPostProps.onPostUpdate).toHaveBeenCalled();
+
+      // Verify the likes count has been updated
+      expect(likeButton).toHaveTextContent("6");
+    });
+
+    it("handles post update API error correctly", async () => {
+      const user = userEvent.setup();
+      const errorMessage = "Failed to fetch post";
+
+      (getPostApi as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new Error(errorMessage)
+      );
+
+      renderWithAuth(<Post {...mockPostProps} />);
+
+      const likeButton = screen.getByTestId("like-button");
+      await user.click(likeButton);
+
+      // Wait for all promises to resolve
+      await vi.waitFor(() => {
+        expect(getPostApi).toHaveBeenCalledWith(mockPostProps.id);
+        expect(console.error).toHaveBeenCalledWith(
+          "Failed to fetch updated post:",
+          expect.any(Error)
+        );
+      });
+
+      // Verify the likes count remains unchanged
+      expect(likeButton).toHaveTextContent("5");
+    });
+  });
+
+  describe("Post Update Integration", () => {
+    beforeEach(() => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      (console.error as ReturnType<typeof vi.fn>).mockRestore();
+    });
+
+    it("updates post data after successful edit", async () => {
+      const user = userEvent.setup();
+      const updatedPost = {
+        ...mockPostProps,
+        content: "Updated content",
+        likes_count: 7,
+        is_liked: true,
+      };
+
+      (editPostApi as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        message: "Success",
+      });
+      (getPostApi as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        updatedPost
+      );
+
+      renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
+
+      // Edit the post
+      await user.click(screen.getByRole("button", { name: "Edit" }));
+      const textarea = screen.getByRole("textbox");
+      await user.clear(textarea);
+      await user.type(textarea, "Updated content");
+      await user.click(screen.getByRole("button", { name: "Save" }));
+
+      expect(editPostApi).toHaveBeenCalledWith(1, "Updated content");
+      expect(getPostApi).toHaveBeenCalledWith(1);
+      expect(mockPostProps.onPostUpdate).toHaveBeenCalled();
     });
   });
 });
