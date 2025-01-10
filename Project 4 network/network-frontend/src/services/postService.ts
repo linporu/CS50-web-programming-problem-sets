@@ -13,7 +13,7 @@ interface ErrorResponse {
 type ApiResponse<T> = (T & SuccessResponse) | ErrorResponse;
 
 // Post related data structures
-interface Post {
+export interface Post {
   id: number;
   content: string;
   created_by: string;

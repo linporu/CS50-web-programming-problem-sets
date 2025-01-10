@@ -1,5 +1,5 @@
 import { fetchWithConfig } from "./api";
-import { GetPostResponse } from "./postService";
+import { Post } from "./postService";
 
 interface UserApiResponse {
   message: string;
@@ -10,7 +10,7 @@ interface UserApiResponse {
     follower_count: number;
     is_following: boolean;
   };
-  posts: GetPostResponse[] | null;
+  posts: Post[] | null;
 }
 
 export interface UserProfile {
@@ -41,9 +41,7 @@ export const getUserProfileApi = async (
 };
 
 // Get user posts only
-export const getUserPostsApi = async (
-  username: string
-): Promise<GetPostResponse[]> => {
+export const getUserPostsApi = async (username: string): Promise<Post[]> => {
   const response = await getUserDetailApi(username);
   return response.posts || [];
 };
@@ -57,13 +55,13 @@ interface FollowApiResponse {
 }
 
 export const followUserApi = async (
-    username: string
+  username: string
 ): Promise<FollowApiResponse> => {
-    const response = (await fetchWithConfig(`/api/users/${username}/follow`, {
-      method: "POST",
-    })) as FollowApiResponse;
-    return response;
-}
+  const response = (await fetchWithConfig(`/api/users/${username}/follow`, {
+    method: "POST",
+  })) as FollowApiResponse;
+  return response;
+};
 
 export const unfollowUserApi = async (
   username: string
