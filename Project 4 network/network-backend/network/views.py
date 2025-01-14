@@ -576,23 +576,48 @@ def posts_following(request):
 
 
 def comments(request, post_id):
-
-    # Check if user is authenticated
-    if not request.user.is_authenticated:
-        return JsonResponse(
-            {"error": "You must be logged in to create, edit or delete your comment."},
-            status=401,
-        )
-
     # Check if post exists
     try:
         post = Post.objects.get(pk=post_id)
     except Post.DoesNotExist:
         return JsonResponse({"error": "Post not found."}, status=404)
 
-    # Comment a post
-    if request.method == "POST":
+    # Get comments
+    if request.method == "GET":
+        try:
+            comments = (
+                Comment.objects.select_related("created_by")
+                .filter(post=post, is_deleted=False)
+                .order_by("-created_at")
+            )
 
+            return JsonResponse(
+                {
+                    "message": "Get comments successfully.",
+                    "comments": [comment.serialize() for comment in comments],
+                },
+                status=200,
+            )
+
+        except Comment.DoesNotExist:
+            return JsonResponse({"error": "Comments do not exist."}, status=404)
+        except DatabaseError:
+            return JsonResponse(
+                {"error": "Database operation error, please try again later."},
+                status=500,
+            )
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    # For POST method, check authentication
+    if not request.user.is_authenticated:
+        return JsonResponse(
+            {"error": "You must be logged in to create, edit or delete your comment."},
+            status=401,
+        )
+
+    # Comment a post
+    elif request.method == "POST":
         # Check if JSON data valid
         try:
             data = json.loads(request.body)
@@ -631,9 +656,9 @@ def comments(request, post_id):
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
-    # Not POST method
+    # Not GET, POST method
     else:
-        return JsonResponse({"error": "Only accept POST method."}, status=400)
+        return JsonResponse({"error": "Only accept GET and POST method."}, status=400)
 
 
 def comment_detail(request, comment_id):
