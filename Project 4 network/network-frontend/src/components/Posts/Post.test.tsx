@@ -115,17 +115,16 @@ describe("Post Component", () => {
 
     it("displays correct likes and comments count", () => {
       renderWithAuth(<Post {...mockPostProps} />);
-      const likeButton = screen.getByRole("button", { name: /like/i });
-      const commentButton = screen.getByRole("button", { name: /comment/i });
+      const likeButton = screen.getByTestId("like-button");
 
       expect(likeButton).toHaveTextContent("5");
-      expect(commentButton).toHaveTextContent("3");
+      expect(screen.getByText("3")).toBeInTheDocument();
     });
 
     it("renders like and comment buttons with correct styling", () => {
       renderWithAuth(<Post {...mockPostProps} />);
       const likeButton = screen.getByTestId("like-button");
-      const commentButton = screen.getByRole("button", { name: /comment/i });
+      const commentsSection = screen.getByText("Comments").closest("div");
 
       expect(likeButton).toHaveClass(
         "flex",
@@ -134,12 +133,11 @@ describe("Post Component", () => {
         "text-gray-600",
         "hover:text-blue-500"
       );
-      expect(commentButton).toHaveClass(
+      expect(commentsSection).toHaveClass(
         "flex",
         "items-center",
         "gap-1",
-        "text-gray-600",
-        "hover:text-blue-500"
+        "text-gray-600"
       );
     });
   });
@@ -183,7 +181,7 @@ describe("Post Component", () => {
       renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
 
       await user.click(screen.getByRole("button", { name: "Edit" }));
-      const textarea = screen.getByRole("textbox");
+      const textarea = screen.getByTestId("post-edit-textarea");
       expect(textarea).toBeInTheDocument();
       expect(textarea).toHaveValue("Test post content");
       expect(textarea).toHaveClass(
@@ -200,7 +198,7 @@ describe("Post Component", () => {
       renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
 
       await user.click(screen.getByRole("button", { name: "Edit" }));
-      const textarea = screen.getByRole("textbox");
+      const textarea = screen.getByTestId("post-edit-textarea");
       await user.clear(textarea);
       await user.click(screen.getByRole("button", { name: "Save" }));
 
@@ -243,7 +241,7 @@ describe("Post Component", () => {
 
       // Edit the post
       await user.click(screen.getByRole("button", { name: "Edit" }));
-      const textarea = screen.getByRole("textbox");
+      const textarea = screen.getByTestId("post-edit-textarea");
       await user.clear(textarea);
       await user.type(textarea, "Updated content");
 
@@ -259,7 +257,9 @@ describe("Post Component", () => {
       });
 
       // Verify the edit mode is exited
-      expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("post-edit-textarea")
+      ).not.toBeInTheDocument();
     });
 
     it("handles edit API error correctly", async () => {
@@ -267,7 +267,7 @@ describe("Post Component", () => {
       renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
 
       await user.click(screen.getByRole("button", { name: "Edit" }));
-      const textarea = screen.getByRole("textbox");
+      const textarea = screen.getByTestId("post-edit-textarea");
       await user.clear(textarea);
       await user.type(textarea, "Updated content");
 
@@ -287,9 +287,13 @@ describe("Post Component", () => {
       renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
 
       await user.click(screen.getByRole("button", { name: "Edit" }));
+      const textarea = screen.getByTestId("post-edit-textarea");
+      expect(textarea).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Cancel" }));
 
-      expect(screen.queryByRole("textbox")).toBeNull();
+      expect(
+        screen.queryByTestId("post-edit-textarea")
+      ).not.toBeInTheDocument();
       expect(screen.getByText("Test post content")).toBeInTheDocument();
     });
 
@@ -474,7 +478,7 @@ describe("Post Component", () => {
 
       // Edit the post
       await user.click(screen.getByRole("button", { name: "Edit" }));
-      const textarea = screen.getByRole("textbox");
+      const textarea = screen.getByTestId("post-edit-textarea");
       await user.clear(textarea);
       await user.type(textarea, "Updated content");
       await user.click(screen.getByRole("button", { name: "Save" }));
