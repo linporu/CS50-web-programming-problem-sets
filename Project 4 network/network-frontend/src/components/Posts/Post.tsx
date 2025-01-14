@@ -3,6 +3,9 @@ import { editPostApi, deletePostApi, getPostApi } from "@/services/postService";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import LikeButton from "../Buttons/LikeButton";
+import { CreateComment } from "../Comments/CreateComment";
+import { CommentList } from "../Comments/CommentList";
+import { CommentProvider } from "@/contexts/CommentContext";
 
 interface PostProps {
   id: number;
@@ -13,13 +16,6 @@ interface PostProps {
   is_deleted: boolean;
   likes_count: number;
   comments_count: number;
-  comments: {
-    id: number;
-    content: string;
-    created_by: string;
-    created_at: string;
-    is_deleted: boolean;
-  }[];
   onPostUpdate?: () => void;
   is_liked: boolean;
 }
@@ -42,6 +38,8 @@ export default function Post({
   const isPostCreator = user?.username === created_by;
   const [currentLikesCount, setCurrentLikesCount] = useState(likes_count);
   const [isLiked, setIsLiked] = useState(false);
+  const [currentCommentsCount, setCurrentCommentsCount] =
+    useState(comments_count);
 
   // Handle edit mode
   const handleEditClick = () => {
@@ -104,6 +102,7 @@ export default function Post({
     try {
       const updatedPost = await getPostApi(postId);
       setCurrentLikesCount(updatedPost.likes_count);
+      setCurrentCommentsCount(updatedPost.comments_count);
       setIsLiked(updatedPost.is_liked);
       onPostUpdate?.();
     } catch (error) {
@@ -154,6 +153,7 @@ export default function Post({
             onChange={(e) => setEditContent(e.target.value)}
             className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             rows={4}
+            data-testid="post-edit-textarea"
           />
           <div className="flex gap-2 mt-2">
             <button
@@ -185,10 +185,23 @@ export default function Post({
           }}
         />
 
-        <button className="flex items-center gap-1 text-gray-600 hover:text-blue-500">
-          <span>Comment</span>
-          <span>{comments_count}</span>
-        </button>
+        <div className="flex items-center gap-1 text-gray-600">
+          <span>Comments</span>
+          <span>{currentCommentsCount}</span>
+        </div>
+      </div>
+
+      {/* Comments Section */}
+      <div className="mt-4 border-t pt-4">
+        <CommentProvider
+          postId={id}
+          onCommentCreate={() => {
+            updatePost(id);
+          }}
+        >
+          {user && <CreateComment postId={id} />}
+          <CommentList />
+        </CommentProvider>
       </div>
     </div>
   );
