@@ -15,6 +15,9 @@ import {
   editPostApi,
   getFollowingPostApi,
   deletePostApi,
+  getPostApi,
+  likePostApi,
+  unLikePostApi,
 } from "./postService";
 import { API_BASE_URL } from "./api";
 
@@ -80,6 +83,28 @@ const mockDeletePostResponse = {
   message: "Post deleted successfully",
 };
 
+const mockGetPostResponse = {
+  id: 1,
+  content: "Test post",
+  created_by: "testuser",
+  created_at: "2024-03-20T10:00:00Z",
+  updated_at: "2024-03-20T10:00:00Z",
+  is_deleted: false,
+  likes_count: 0,
+  comments_count: 0,
+  is_liked: false,
+  comments: [],
+  message: "Post retrieved successfully",
+};
+
+const mockLikePostResponse = {
+  message: "Post liked successfully",
+};
+
+const mockUnlikePostResponse = {
+  message: "Post unliked successfully",
+};
+
 // Setup MSW server
 const server = setupServer(
   // Mock CSRF endpoint
@@ -135,6 +160,36 @@ const server = setupServer(
   // Mock DELETE posts endpoint
   http.delete(`${API_BASE_URL}/api/posts/:id`, () => {
     return new HttpResponse(JSON.stringify(mockDeletePostResponse), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+  }),
+
+  // Mock GET single post endpoint
+  http.get(`${API_BASE_URL}/api/posts/:id`, () => {
+    return new HttpResponse(JSON.stringify(mockGetPostResponse), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+  }),
+
+  // Mock POST like endpoint
+  http.post(`${API_BASE_URL}/api/posts/:id/like`, () => {
+    return new HttpResponse(JSON.stringify(mockLikePostResponse), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+  }),
+
+  // Mock DELETE like endpoint
+  http.delete(`${API_BASE_URL}/api/posts/:id/like`, () => {
+    return new HttpResponse(JSON.stringify(mockUnlikePostResponse), {
       status: 200,
       headers: {
         "content-type": "application/json",
@@ -403,6 +458,137 @@ describe("postService", () => {
       );
 
       await expect(deletePostApi(1)).rejects.toThrow("Failed to delete post");
+    });
+  });
+
+  describe("getPostApi", () => {
+    it("should successfully fetch a single post", async () => {
+      const response = await getPostApi(1);
+      expect(response).toEqual(mockGetPostResponse);
+    });
+
+    it("should throw error when API fails", async () => {
+      server.use(
+        http.get(`${API_BASE_URL}/api/posts/1`, () => {
+          return new HttpResponse(JSON.stringify({ error: "Post not found" }), {
+            status: 404,
+            headers: {
+              "content-type": "application/json",
+            },
+          });
+        })
+      );
+
+      await expect(getPostApi(1)).rejects.toThrow("Post not found");
+    });
+
+    it("should throw error for invalid response format", async () => {
+      server.use(
+        http.get(`${API_BASE_URL}/api/posts/1`, () => {
+          return new HttpResponse(
+            JSON.stringify({ error: "Invalid response format" }),
+            {
+              status: 400,
+              headers: {
+                "content-type": "application/json",
+              },
+            }
+          );
+        })
+      );
+
+      await expect(getPostApi(1)).rejects.toThrow("Invalid response format");
+    });
+  });
+
+  describe("likePostApi", () => {
+    it("should successfully like a post", async () => {
+      const response = await likePostApi(1);
+      expect(response).toEqual(mockLikePostResponse);
+    });
+
+    it("should throw error when API fails", async () => {
+      server.use(
+        http.post(`${API_BASE_URL}/api/posts/1/like`, () => {
+          return new HttpResponse(JSON.stringify({ error: "Already liked" }), {
+            status: 400,
+            headers: {
+              "content-type": "application/json",
+            },
+          });
+        })
+      );
+
+      await expect(likePostApi(1)).rejects.toThrow("Already liked");
+    });
+  });
+
+  describe("unLikePostApi", () => {
+    it("should successfully unlike a post", async () => {
+      const response = await unLikePostApi(1);
+      expect(response).toEqual(mockUnlikePostResponse);
+    });
+
+    it("should throw error when API fails", async () => {
+      server.use(
+        http.delete(`${API_BASE_URL}/api/posts/1/like`, () => {
+          return new HttpResponse(JSON.stringify({ error: "Not liked yet" }), {
+            status: 400,
+            headers: {
+              "content-type": "application/json",
+            },
+          });
+        })
+      );
+
+      await expect(unLikePostApi(1)).rejects.toThrow("Not liked yet");
+    });
+  });
+
+  describe("handlePostsResponse edge cases", () => {
+    it("should handle null response", async () => {
+      server.use(
+        http.get(`${API_BASE_URL}/api/posts`, () => {
+          return new HttpResponse("null", {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          });
+        })
+      );
+
+      await expect(getAllPostsApi()).rejects.toThrow("Invalid response format");
+    });
+
+    it("should handle undefined response", async () => {
+      server.use(
+        http.get(`${API_BASE_URL}/api/posts`, () => {
+          return new HttpResponse("undefined", {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          });
+        })
+      );
+
+      await expect(getAllPostsApi()).rejects.toThrow("Invalid response format");
+    });
+
+    it("should handle empty object response", async () => {
+      server.use(
+        http.get(`${API_BASE_URL}/api/posts`, () => {
+          return new HttpResponse("{}", {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          });
+        })
+      );
+
+      await expect(getAllPostsApi()).rejects.toThrow("Invalid response format");
     });
   });
 });
