@@ -176,14 +176,22 @@ export default function Post({
 
       {/* Post Footer */}
       <div className="flex items-center gap-4 text-sm text-gray-600">
-        <LikeButton
-          postId={id}
-          initialIsLiked={isLiked}
-          likesCount={currentLikesCount}
-          onLikeUpdate={() => {
-            updatePost(id);
-          }}
-        />
+        {user && (
+          <LikeButton
+            postId={id}
+            initialIsLiked={isLiked}
+            likesCount={currentLikesCount}
+            onLikeUpdate={() => {
+              updatePost(id);
+            }}
+          />
+        )}
+        {!user && (
+          <div className="flex items-center gap-1 text-gray-600">
+            <span>Likes</span>
+            <span>{currentLikesCount}</span>
+          </div>
+        )}
 
         <div className="flex items-center gap-1 text-gray-600">
           <span>Comments</span>

@@ -113,16 +113,22 @@ describe("Post Component", () => {
       expect(screen.getByText("2024-03-20T11:00:00Z")).toBeInTheDocument();
     });
 
-    it("displays correct likes and comments count", () => {
-      renderWithAuth(<Post {...mockPostProps} />);
+    it("displays correct likes and comments count for authenticated user", () => {
+      renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
       const likeButton = screen.getByTestId("like-button");
-
       expect(likeButton).toHaveTextContent("5");
       expect(screen.getByText("3")).toBeInTheDocument();
     });
 
-    it("renders like and comment buttons with correct styling", () => {
+    it("displays correct likes and comments count for unauthenticated user", () => {
       renderWithAuth(<Post {...mockPostProps} />);
+      expect(screen.getByText("Likes")).toBeInTheDocument();
+      expect(screen.getByText("5")).toBeInTheDocument();
+      expect(screen.getByText("3")).toBeInTheDocument();
+    });
+
+    it("renders like and comment sections with correct styling for authenticated user", () => {
+      renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
       const likeButton = screen.getByTestId("like-button");
       const commentsSection = screen.getByText("Comments").closest("div");
 
@@ -132,6 +138,25 @@ describe("Post Component", () => {
         "gap-1",
         "text-gray-600",
         "hover:text-blue-500"
+      );
+      expect(commentsSection).toHaveClass(
+        "flex",
+        "items-center",
+        "gap-1",
+        "text-gray-600"
+      );
+    });
+
+    it("renders like and comment sections with correct styling for unauthenticated user", () => {
+      renderWithAuth(<Post {...mockPostProps} />);
+      const likesSection = screen.getByText("Likes").closest("div");
+      const commentsSection = screen.getByText("Comments").closest("div");
+
+      expect(likesSection).toHaveClass(
+        "flex",
+        "items-center",
+        "gap-1",
+        "text-gray-600"
       );
       expect(commentsSection).toHaveClass(
         "flex",
@@ -380,7 +405,31 @@ describe("Post Component", () => {
       (console.error as ReturnType<typeof vi.fn>).mockRestore();
     });
 
-    it("initializes with correct likes count and liked state", () => {
+    it("shows LikeButton when user is authenticated", () => {
+      renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
+      expect(screen.getByTestId("like-button")).toBeInTheDocument();
+    });
+
+    it("shows static likes count when user is not authenticated", () => {
+      renderWithAuth(<Post {...mockPostProps} />);
+      expect(screen.queryByTestId("like-button")).not.toBeInTheDocument();
+      expect(screen.getByText("Likes")).toBeInTheDocument();
+      expect(screen.getByText("5")).toBeInTheDocument();
+    });
+
+    it("initializes with correct likes count for authenticated user", () => {
+      const customProps = {
+        ...mockPostProps,
+        likes_count: 10,
+        is_liked: true,
+      };
+      renderWithAuth(<Post {...customProps} />, { username: "testuser" });
+
+      const likeButton = screen.getByTestId("like-button");
+      expect(likeButton).toHaveTextContent("10");
+    });
+
+    it("initializes with correct likes count for unauthenticated user", () => {
       const customProps = {
         ...mockPostProps,
         likes_count: 10,
@@ -388,11 +437,12 @@ describe("Post Component", () => {
       };
       renderWithAuth(<Post {...customProps} />);
 
-      const likeButton = screen.getByTestId("like-button");
-      expect(likeButton).toHaveTextContent("10");
+      const likesCount = screen.getByText("10");
+      expect(likesCount).toBeInTheDocument();
+      expect(screen.queryByTestId("like-button")).not.toBeInTheDocument();
     });
 
-    it("updates likes count and liked state when post is updated", async () => {
+    it("updates likes count and liked state when post is updated for authenticated user", async () => {
       const user = userEvent.setup();
       const updatedPost = {
         ...mockPostProps,
@@ -404,7 +454,7 @@ describe("Post Component", () => {
         updatedPost
       );
 
-      renderWithAuth(<Post {...mockPostProps} />);
+      renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
 
       // Simulate post update (e.g., after like button click)
       const likeButton = screen.getByTestId("like-button");
@@ -422,7 +472,7 @@ describe("Post Component", () => {
       expect(likeButton).toHaveTextContent("6");
     });
 
-    it("handles post update API error correctly", async () => {
+    it("handles post update API error correctly for authenticated user", async () => {
       const user = userEvent.setup();
       const errorMessage = "Failed to fetch post";
 
@@ -430,7 +480,7 @@ describe("Post Component", () => {
         new Error(errorMessage)
       );
 
-      renderWithAuth(<Post {...mockPostProps} />);
+      renderWithAuth(<Post {...mockPostProps} />, { username: "testuser" });
 
       const likeButton = screen.getByTestId("like-button");
       await user.click(likeButton);
