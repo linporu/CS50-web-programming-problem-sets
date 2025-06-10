@@ -7,6 +7,9 @@ import path from "path";
 
 const viteConfig = defineConfig({
   plugins: [react()],
+  server: {
+    open: true,
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
