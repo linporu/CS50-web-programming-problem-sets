@@ -35,5 +35,8 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Run Tests
-        run: uv run python manage.py test
+      - name: Run Tests with Coverage
+        run: uv run coverage run --source='.' manage.py test
+
+      - name: Generate Coverage Report
+        run: uv run coverage report

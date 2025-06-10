@@ -8,3 +8,8 @@ dependencies = [
     "django>=5.2.2",
     "django-cors-headers>=4.7.0",
 ]
+
+[tool.uv]
+dev-dependencies = [
+    "coverage>=7.0.0",
+]
